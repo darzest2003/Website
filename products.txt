@@ -1,0 +1,2 @@
+p4|Laptop 8/256gb|56000|uploads/Laptop.jpg|2
+p5|Cotton roll|100|uploads/product1.jpg|100
