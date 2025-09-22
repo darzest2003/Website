@@ -291,7 +291,7 @@ function submitOrder(event){
   // ✅ Send product IDs and quantities so server computes prices
   const productsData = cart.map(p => ({ product: p.id, qty: p.qty }));
 
-  fetch("/api/orders",{
+  fetch(API_BASE + "/api/orders", {
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({ 
@@ -305,12 +305,10 @@ function submitOrder(event){
   .then(res=>res.text())
   .then(data=>{
     if(data.includes("Order placed successfully")){
-      // Show order summary to user
       const message=`Hello ${name}, your order for ${cart.map(p=>p.title+' x'+p.qty).join(", ")} has been received.`;
       alert(`Thank you ${name}! Your order has been placed successfully.`);
       window.open(`https://wa.me/${contact}?text=${encodeURIComponent(message)}`,"_blank");
 
-      // Clear cart
       cart=[];
       updateCartUI();
       closeOrderForm();
