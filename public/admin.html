@@ -27,6 +27,12 @@
   </style>  
 </head>  
 <body>  
+  <script>
+  // ✅ Block access if not logged in
+  if (localStorage.getItem("adminLoggedIn") !== "true") {
+    window.location.href = "admin_login.html";
+  }
+  </script>
   <div class="top-bar">  
     <h1>Admin Panel - Manage Products & Orders</h1>  
     <button class="logout-btn" onclick="logout()">Logout</button>  
