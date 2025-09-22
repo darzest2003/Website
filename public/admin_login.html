@@ -70,7 +70,7 @@
         });
 
         if (res.ok) {
-          // ✅ Mark admin as logged in
+          // ✅ Mark admin as logged in (sessionStorage clears on browser close)
           sessionStorage.setItem("adminLoggedIn", "true");
           window.location.href = "admin.html";
         } else {
@@ -82,10 +82,9 @@
       }
     });
 
-    // ✅ If already logged in, skip login page
+    // ✅ If already logged in in this session, skip login page
     if (sessionStorage.getItem("adminLoggedIn") === "true") {
-  window.location.href = "/admin.html";
-    }
+      window.location.href = "admin.html";
     }
   </script>
 </body>
