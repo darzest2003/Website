@@ -197,6 +197,9 @@ void sendResponse(int clientSocket, const std::string &status, const std::string
     std::stringstream response;
     response << "HTTP/1.1 " << status << "\r\n";
     response << "Content-Type: " << contentType << "\r\n";
+    response << "Access-Control-Allow-Origin: *\r\n";
+    response << "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n";
+    response << "Access-Control-Allow-Headers: Content-Type\r\n";
     response << "Content-Length: " << body.size() << "\r\n";
     response << "Connection: close\r\n\r\n";
     response << body;
@@ -204,48 +207,127 @@ void sendResponse(int clientSocket, const std::string &status, const std::string
     send(clientSocket, resStr.c_str(), resStr.size(), 0);
 }
 
+// parse form-urlencoded body: key1=val1&key2=val2
+static std::string urlDecode(const std::string &src) {
+    std::ostringstream out;
+    for (size_t i = 0; i < src.length(); ++i) {
+        if (src[i] == '+') out << ' ';
+        else if (src[i] == '%' && i + 2 < src.length()) {
+            int value = 0;
+            std::istringstream is(src.substr(i + 1, 2));
+            if (is >> std::hex >> value) {
+                out << static_cast<char>(value);
+                i += 2;
+            } else {
+                out << '%';
+            }
+        } else {
+            out << src[i];
+        }
+    }
+    return out.str();
+}
+
+std::map<std::string,std::string> parseFormUrlEncoded(const std::string &body) {
+    std::map<std::string,std::string> out;
+    size_t pos = 0;
+    while (pos < body.size()) {
+        size_t eq = body.find('=', pos);
+        if (eq == std::string::npos) break;
+        std::string k = body.substr(pos, eq - pos);
+        size_t amp = body.find('&', eq + 1);
+        std::string v;
+        if (amp == std::string::npos) {
+            v = body.substr(eq + 1);
+            pos = body.size();
+        } else {
+            v = body.substr(eq + 1, amp - (eq + 1));
+            pos = amp + 1;
+        }
+        out[k] = urlDecode(v);
+    }
+    return out;
+}
+
 // ------------------- Client Handler -------------------
 void handleClient(int clientSocket) {
-    char buffer[8192];
-    int bytesReceived = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
-    if (bytesReceived < 0) { close(clientSocket); return; }
-    buffer[bytesReceived] = '\0';
-    std::string request(buffer);
+    std::string request;
+    const int BUF_SIZE = 8192;
+    char buf[BUF_SIZE];
+    ssize_t n;
 
+    // Read until headers end (\r\n\r\n)
+    bool headersDone = false;
+    while (!headersDone) {
+        n = recv(clientSocket, buf, BUF_SIZE, 0);
+        if (n <= 0) {
+            close(clientSocket);
+            return;
+        }
+        request.append(buf, buf + n);
+        if (request.find("\r\n\r\n") != std::string::npos) {
+            headersDone = true;
+            break;
+        }
+        // continue reading if headers not complete
+    }
+
+    size_t headerPos = request.find("\r\n\r\n");
+    std::string headers = (headerPos != std::string::npos) ? request.substr(0, headerPos) : "";
+    std::string body = (headerPos != std::string::npos) ? request.substr(headerPos + 4) : "";
+
+    // Determine Content-Length if present
+    size_t contentLength = 0;
+    size_t clPos = headers.find("Content-Length:");
+    if (clPos != std::string::npos) {
+        clPos += strlen("Content-Length:");
+        while (clPos < headers.size() && isspace((unsigned char)headers[clPos])) clPos++;
+        size_t endPos = headers.find("\r\n", clPos);
+        if (endPos == std::string::npos) endPos = headers.size();
+        try {
+            contentLength = std::stoul(headers.substr(clPos, endPos - clPos));
+        } catch (...) {
+            contentLength = 0;
+        }
+    }
+
+    // Read remaining body bytes if needed
+    while (body.size() < contentLength) {
+        n = recv(clientSocket, buf, BUF_SIZE, 0);
+        if (n <= 0) break;
+        body.append(buf, buf + n);
+    }
+
+    // Parse request line (method, path, version)
     std::istringstream reqStream(request);
     std::string method, path, version;
     reqStream >> method >> path >> version;
 
     std::cout << "Request: " << method << " " << path << std::endl;
+    std::cout << "Raw body: [" << body << "]" << std::endl;
 
-    std::string body = "";
-    size_t pos = request.find("\r\n\r\n");
-    std::string headers = (pos != std::string::npos) ? request.substr(0, pos) : "";
-    if (pos != std::string::npos) body = request.substr(pos + 4);
-
-    // ✅ Read Content-Length if body is incomplete
-    size_t contentLength = 0;
-    size_t clPos = headers.find("Content-Length:");
-    if (clPos != std::string::npos) {
-        clPos += 15;
-        while (clPos < headers.size() && headers[clPos] == ' ') clPos++;
-        size_t endPos = headers.find("\r\n", clPos);
-        contentLength = std::stoul(headers.substr(clPos, endPos - clPos));
+    // Handle OPTIONS preflight quickly
+    if (method == "OPTIONS") {
+        sendResponse(clientSocket, "200 OK", "text/plain", "OK");
+        close(clientSocket);
+        return;
     }
-
-    while (body.size() < contentLength) {
-        int more = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
-        if (more <= 0) break;
-        buffer[more] = '\0';
-        body += buffer;
-    }
-
-    std::cout << "Raw body: " << body << std::endl;
 
     // ------------------- API Routes -------------------
     if (path.find("/api/login") == 0 && method == "POST") {
         std::string username = extractValue(body, "username");
         std::string password = extractValue(body, "password");
+
+        // fallback for form-urlencoded if JSON parsing yields nothing
+        if (username.empty() && password.empty()) {
+            auto form = parseFormUrlEncoded(body);
+            if (form.find("username") != form.end()) username = form["username"];
+            if (form.find("password") != form.end()) password = form["password"];
+        }
+
+        username = trim(username);
+        password = trim(password);
+
         if (username == "admin" && password == "1234")
             sendResponse(clientSocket, "200 OK", "text/plain", "success");
         else
@@ -259,9 +341,11 @@ void handleClient(int clientSocket) {
             pos += 10;
             size_t start = bodyStr.find("\"", pos) + 1;
             size_t end = bodyStr.find("\"", start);
+            if (start == std::string::npos || end == std::string::npos) break;
             std::string prodId = bodyStr.substr(start, end-start);
 
             size_t qtyPos = bodyStr.find("\"qty\":", end);
+            if (qtyPos == std::string::npos) break;
             qtyPos += 6;
             size_t qtyEnd = bodyStr.find_first_of(",}", qtyPos);
             int qty = std::stoi(bodyStr.substr(qtyPos, qtyEnd - qtyPos));
@@ -439,3 +523,11 @@ int main() {
     while (true) {
         if ((clientSocket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0) {
             perror("accept");
+            continue;
+        }
+        handleClient(clientSocket);
+    }
+
+    close(server_fd);
+    return 0;
+}  
