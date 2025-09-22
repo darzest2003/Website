@@ -159,7 +159,7 @@ function closeProductDetails(){ document.getElementById("productDetails").style.
 // Load Products
 async function loadProducts(){
   try{
-    const res = await fetch("/api/products");
+    const res = await fetch(API_BASE + "/api/products");
     allProducts = await res.json();
     renderProducts();
     renderPagination();
