@@ -71,7 +71,7 @@
 
         if (res.ok) {
           // ✅ Mark admin as logged in
-          localStorage.setItem("adminLoggedIn", "true");
+          sessionStorage.setItem("adminLoggedIn", "true");
           window.location.href = "admin.html";
         } else {
           alert("Invalid credentials!");
@@ -83,8 +83,9 @@
     });
 
     // ✅ If already logged in, skip login page
-    if (localStorage.getItem("adminLoggedIn") === "true") {
-      window.location.href = "admin.html";
+    if (sessionStorage.getItem("adminLoggedIn") === "true") {
+  window.location.href = "/admin.html";
+    }
     }
   </script>
 </body>
