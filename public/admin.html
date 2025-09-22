@@ -59,6 +59,8 @@
   </div>
 
   <script>
+    const API_BASE = "https://cppbackend.onrender.com"; // 🔧 change to your Render backend URL
+
     function logout() {
       localStorage.removeItem("adminLoggedIn");
       window.location.href = "admin_login.html";
@@ -66,7 +68,7 @@
 
     async function loadProducts() {
       try {
-        const res = await fetch("/api/products");
+        const res = await fetch(`${API_BASE}/api/products`);
         const products = await res.json();
         const container = document.getElementById("productList");
         container.innerHTML = "";
@@ -97,7 +99,7 @@
       const stock = document.getElementById("stock").value;
       const product = { title, price, stock, img };
       try {
-        const res = await fetch("/api/addProduct", {
+        const res = await fetch(`${API_BASE}/api/addProduct`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(product)
@@ -112,7 +114,7 @@
     async function deleteProduct(id) {
       if (!confirm("Are you sure you want to delete this product?")) return;
       try {
-        const res = await fetch("/api/deleteProduct", {
+        const res = await fetch(`${API_BASE}/api/deleteProduct`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id })
@@ -125,7 +127,7 @@
 
     async function loadOrders() {
       try {
-        const res = await fetch("/api/orders");
+        const res = await fetch(`${API_BASE}/api/orders`);
         const orders = await res.json();
         const container = document.getElementById("orderList");
         container.innerHTML = "";
