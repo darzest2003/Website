@@ -1,4 +1,3 @@
-// (Full updated server.cpp)
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -14,8 +13,6 @@
 #include <cstring>
 #include <cerrno>
 #include <cctype>
-#include <cstdlib>
-#include <iomanip>
 
 // ------------------- Structures -------------------
 struct Order {
@@ -59,26 +56,6 @@ std::string trim(const std::string &s) {
     auto end = s.end();
     do { end--; } while (std::distance(start, end) > 0 && std::isspace(*end));
     return std::string(start, end + 1);
-}
-
-static std::string urlDecode(const std::string &src) {
-    std::ostringstream out;
-    for (size_t i = 0; i < src.length(); ++i) {
-        if (src[i] == '+') out << ' ';
-        else if (src[i] == '%' && i + 2 < src.length()) {
-            int value = 0;
-            std::istringstream is(src.substr(i + 1, 2));
-            if (is >> std::hex >> value) {
-                out << static_cast<char>(value);
-                i += 2;
-            } else {
-                out << '%';
-            }
-        } else {
-            out << src[i];
-        }
-    }
-    return out.str();
 }
 
 // ------------------- Orders -------------------
@@ -220,10 +197,6 @@ void sendResponse(int clientSocket, const std::string &status, const std::string
     std::stringstream response;
     response << "HTTP/1.1 " << status << "\r\n";
     response << "Content-Type: " << contentType << "\r\n";
-    // CORS headers (allow your Vercel frontend)
-    response << "Access-Control-Allow-Origin: *\r\n";
-    response << "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n";
-    response << "Access-Control-Allow-Headers: Content-Type\r\n";
     response << "Content-Length: " << body.size() << "\r\n";
     response << "Connection: close\r\n\r\n";
     response << body;
@@ -231,36 +204,13 @@ void sendResponse(int clientSocket, const std::string &status, const std::string
     send(clientSocket, resStr.c_str(), resStr.size(), 0);
 }
 
-// parse form-urlencoded body: key1=val1&key2=val2
-std::map<std::string,std::string> parseFormUrlEncoded(const std::string &body) {
-    std::map<std::string,std::string> out;
-    size_t pos = 0;
-    while (pos < body.size()) {
-        size_t eq = body.find('=', pos);
-        if (eq == std::string::npos) break;
-        std::string k = body.substr(pos, eq - pos);
-        size_t amp = body.find('&', eq + 1);
-        std::string v;
-        if (amp == std::string::npos) {
-            v = body.substr(eq + 1);
-            pos = body.size();
-        } else {
-            v = body.substr(eq + 1, amp - (eq + 1));
-            pos = amp + 1;
-        }
-        out[k] = urlDecode(v);
-    }
-    return out;
-}
-
 // ------------------- Client Handler -------------------
 void handleClient(int clientSocket) {
-    // increased buffer to handle larger requests if needed
-    std::vector<char> buffer(64 * 1024);
-    int bytesReceived = recv(clientSocket, buffer.data(), buffer.size() - 1, 0);
+    char buffer[8192];
+    int bytesReceived = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
     if (bytesReceived < 0) { close(clientSocket); return; }
     buffer[bytesReceived] = '\0';
-    std::string request(buffer.data(), bytesReceived);
+    std::string request(buffer);
 
     std::istringstream reqStream(request);
     std::string method, path, version;
@@ -270,62 +220,54 @@ void handleClient(int clientSocket) {
 
     std::string body = "";
     size_t pos = request.find("\r\n\r\n");
+    std::string headers = (pos != std::string::npos) ? request.substr(0, pos) : "";
     if (pos != std::string::npos) body = request.substr(pos + 4);
 
-    // Log the raw body for debugging (visible in Render logs)
-    std::cout << "Raw body: [" << body << "]" << std::endl;
-
-    // Handle CORS preflight
-    if (method == "OPTIONS") {
-        sendResponse(clientSocket, "200 OK", "text/plain", "OK");
-        close(clientSocket);
-        return;
+    // ✅ Read Content-Length if body is incomplete
+    size_t contentLength = 0;
+    size_t clPos = headers.find("Content-Length:");
+    if (clPos != std::string::npos) {
+        clPos += 15;
+        while (clPos < headers.size() && headers[clPos] == ' ') clPos++;
+        size_t endPos = headers.find("\r\n", clPos);
+        contentLength = std::stoul(headers.substr(clPos, endPos - clPos));
     }
+
+    while (body.size() < contentLength) {
+        int more = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
+        if (more <= 0) break;
+        buffer[more] = '\0';
+        body += buffer;
+    }
+
+    std::cout << "Raw body: " << body << std::endl;
 
     // ------------------- API Routes -------------------
     if (path.find("/api/login") == 0 && method == "POST") {
-        // Try JSON first
         std::string username = extractValue(body, "username");
         std::string password = extractValue(body, "password");
-
-        // If JSON parsing failed, try form-urlencoded
-        if (username.empty() && password.empty()) {
-            auto form = parseFormUrlEncoded(body);
-            if (form.find("username") != form.end()) username = form["username"];
-            if (form.find("password") != form.end()) password = form["password"];
-        }
-
-        // Trim whitespace
-        username = trim(username);
-        password = trim(password);
-
-        std::cout << "Login attempt: user='" << username << "'" << std::endl;
-
-        if (username == "admin" && password == "1234") {
+        if (username == "admin" && password == "1234")
             sendResponse(clientSocket, "200 OK", "text/plain", "success");
-        } else {
+        else
             sendResponse(clientSocket, "401 Unauthorized", "text/plain", "Invalid credentials");
-        }
     }
     else if (path.find("/api/orders") == 0 && method == "POST") {
         std::vector<std::pair<std::string,int>> orderProducts;
         std::string bodyStr(body);
-        size_t ppos = 0;
-        while ((ppos = bodyStr.find("\"product\":", ppos)) != std::string::npos) {
-            ppos += 10;
-            size_t start = bodyStr.find("\"", ppos) + 1;
+        size_t pos = 0;
+        while ((pos = bodyStr.find("\"product\":", pos)) != std::string::npos) {
+            pos += 10;
+            size_t start = bodyStr.find("\"", pos) + 1;
             size_t end = bodyStr.find("\"", start);
-            if (start == std::string::npos || end == std::string::npos) break;
             std::string prodId = bodyStr.substr(start, end-start);
 
             size_t qtyPos = bodyStr.find("\"qty\":", end);
-            if (qtyPos == std::string::npos) break;
             qtyPos += 6;
             size_t qtyEnd = bodyStr.find_first_of(",}", qtyPos);
             int qty = std::stoi(bodyStr.substr(qtyPos, qtyEnd - qtyPos));
 
             orderProducts.push_back({prodId, qty});
-            ppos = qtyEnd;
+            pos = qtyEnd;
         }
 
         Order o;
@@ -355,7 +297,7 @@ void handleClient(int clientSocket) {
 
             prodSummary += title + " (RS." + std::string(priceStr) + ") x" + std::to_string(p.second) + ", ";
         }
-        if (!prodSummary.empty()) prodSummary.pop_back(), prodSummary.pop_back(); // remove last ", "
+        if (!prodSummary.empty()) prodSummary.pop_back(), prodSummary.pop_back();
 
         double deliveryCharges = 180.0;
         if(subtotal >= 3000 && subtotal < 5000) deliveryCharges = 550;
@@ -407,7 +349,7 @@ void handleClient(int clientSocket) {
             ss << "{"
                << "\"id\":\"" << p.id << "\","
                << "\"title\":\"" << p.title << "\","
-               << "\"price\":" << std::fixed << std::setprecision(2) << p.price << ","
+               << "\"price\":" << p.price << ","
                << "\"img\":\"" << p.img << "\","
                << "\"stock\":" << p.stock
                << "}";
@@ -434,7 +376,7 @@ void handleClient(int clientSocket) {
     else if (path.find("/api/deleteProduct") == 0 && method == "POST") {
         std::string id = extractValue(body, "id");
         auto it = std::remove_if(products.begin(), products.end(), [&](const Product& p){ return p.id == id; });
-        if(it != products.end() && it != products.end()) {
+        if(it != products.end()) {
             products.erase(it, products.end());
             saveProducts();
             sendResponse(clientSocket, "200 OK", "text/plain", "Product deleted successfully");
@@ -497,11 +439,3 @@ int main() {
     while (true) {
         if ((clientSocket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0) {
             perror("accept");
-            continue;
-        }
-        handleClient(clientSocket);
-    }
-
-    close(server_fd);
-    return 0;
-}
