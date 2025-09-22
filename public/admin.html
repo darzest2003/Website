@@ -55,10 +55,14 @@
   </div>    <script>  
     const API_BASE = "https://cppbackened.onrender.com";  
   
-    function logout() {  
-      localStorage.removeItem("adminLoggedIn");  
-      window.location.href = "admin_login.html";  
+    function logout() {
+  sessionStorage.removeItem("adminLoggedIn");
+  window.location.href = "admin_login.html";
     }  
+    }
+    if (sessionStorage.getItem("adminLoggedIn") !== "true") {
+  window.location.href = "admin_login.html";
+    }
   
     async function loadProducts() {  
       try {  
