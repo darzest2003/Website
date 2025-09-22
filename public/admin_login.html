@@ -52,6 +52,9 @@
   </div>
 
   <script>
+    // 🔗 Replace this with your actual Render backend link
+    const API_BASE = "https://your-app-name.onrender.com";
+
     const form = document.getElementById("loginForm");
 
     form.addEventListener("submit", async function(event) {
@@ -60,16 +63,16 @@
       const password = document.getElementById("password").value;
 
       try {
-        let res = await fetch("/api/login", {
+        let res = await fetch(`${API_BASE}/api/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username, password })
         });
 
-        if (res.status === 302 || res.status === 200) {
+        if (res.ok) {
           // ✅ Mark admin as logged in
           localStorage.setItem("adminLoggedIn", "true");
-          window.location.href = "/admin.html";
+          window.location.href = "admin.html";
         } else {
           alert("Invalid credentials!");
         }
@@ -81,7 +84,7 @@
 
     // ✅ If already logged in, skip login page
     if (localStorage.getItem("adminLoggedIn") === "true") {
-      window.location.href = "/admin.html";
+      window.location.href = "admin.html";
     }
   </script>
 </body>
