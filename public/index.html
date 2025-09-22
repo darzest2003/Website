@@ -161,6 +161,10 @@ async function loadProducts(){
   try{
     const res = await fetch(API_BASE + "/api/products");
     allProducts = await res.json();
+
+    // ✅ Ensure each product has an id (fallback to _id if missing)
+    allProducts = allProducts.map(p => ({ ...p, id: p.id || p._id, img: p.img.startsWith('http') ? p.img : `${API_BASE}/${p.img}` }));
+
     renderProducts();
     renderPagination();
   }catch(err){
