@@ -10,11 +10,11 @@ COPY . .
 # Ensure required folders exist
 RUN mkdir -p data public
 
-# Compile the C++ server (adjust filename!)
+# Compile the C++ server
 RUN g++ -std=c++17 -o server server.cpp
 
 # Expose port (Render uses $PORT)
 EXPOSE 8080
 
-# Run the server
-CMD ["./server"]
+# Run the server with Render's $PORT
+CMD ["sh", "-c", "./server $PORT"]
