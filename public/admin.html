@@ -95,7 +95,7 @@
               <p>Stock: ${p.stock}</p>
             </div>
             <div class="actions">
-              <button onclick="deleteProduct('${p.id}')">Delete</button>
+              <button onclick="deleteProduct('${p._id || p.id}')">Delete</button>
             </div>
           `;
           container.appendChild(div);
@@ -126,10 +126,8 @@
     async function deleteProduct(id) {
       if (!confirm("Are you sure you want to delete this product?")) return;
       try {
-        const res = await fetch(`${API_BASE}/api/deleteProduct`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id })
+        const res = await fetch(`${API_BASE}/api/deleteProduct/${id}`, {
+          method: "DELETE"
         });
         const text = await res.text();
         alert(text);
