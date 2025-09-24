@@ -1,26 +1,31 @@
-# Use a stable and lightweight base image
-FROM ubuntu:22.04
+# Use a small official image with g++
+FROM debian:bullseye-slim AS build
 
-# Install build tools (g++, make, pthreads, libc headers, netcat for debugging)
-RUN apt-get update && apt-get install -y \
-    g++ \
-    make \
-    netcat \
-    && rm -rf /var/lib/apt/lists/*
+# Install compiler & tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    g++ make && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
+# Set workdir
 WORKDIR /app
 
-# Copy project files into container
-COPY . .
+# Copy only the source file
+COPY server.cpp .
 
-# Ensure required folders exist for your server
-RUN mkdir -p data public
-
-# Build the C++ server (optimized with pthread support)
+# Build the C++ server
 RUN g++ -std=c++17 -O2 -pthread -o server server.cpp
 
-# Render injects PORT automatically (we’ll map to 8080 in server.cpp if unset)
+# ================= Runtime Stage =================
+FROM debian:bullseye-slim
+
+WORKDIR /app
+
+# Copy compiled binary
+COPY --from=build /app/server .
+
+# Create data & public dirs (to avoid missing paths)
+RUN mkdir -p data public
+
+# Expose port (Render/Heroku will inject $PORT)
 EXPOSE 8080
 
 # Run the server
