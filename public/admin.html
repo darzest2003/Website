@@ -5,26 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Panel - Manage Products & Orders</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f9; }
-    h1 { color: #333; text-align: center; }
-    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    body { font-family: Arial, sans-serif; margin: 0; background: #f4f4f9; }
+    .container { max-width: 1200px; margin: auto; padding: 20px; }
+    h1 { color: #333; text-align: center; margin-bottom: 20px; }
+    .top-bar { display: flex; justify-content: space-between; align-items: center; background: #343a40; color: white; padding: 15px 20px; }
     .logout-btn { background: #dc3545; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; }
     .logout-btn:hover { background: #c82333; }
     form { background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-    label { display: block; margin-top: 10px; }
-    input, textarea, button { width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc; }
+    label { display: block; margin-top: 10px; font-weight: bold; }
+    input, textarea, button, select { width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc; }
     button { background: #28a745; color: white; border: none; cursor: pointer; margin-top: 15px; }
     button:hover { background: #218838; }
     .section { margin-top: 30px; }
+    .list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .list-header input { width: 200px; }
     .product, .order { background: white; padding: 10px; border-radius: 5px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; align-items: center; }
     .product img { width: 80px; height: 80px; object-fit: cover; margin-right: 15px; border-radius: 5px; }
     .actions { margin-left: auto; }
     .actions button { background: #dc3545; margin-left: 5px; }
     .actions button:hover { background: #c82333; }
-    .orders { margin-top: 20px; }
     .order-details { flex: 1; }
     .order-actions button { background: #007bff; }
     .order-actions button:hover { background: #0056b3; }
+    .export-btn { background: #17a2b8; }
+    .export-btn:hover { background: #117a8b; }
   </style>
 </head>
 <body>
@@ -38,33 +42,46 @@
   </script>
 
   <div class="top-bar">
-    <h1>Admin Panel - Manage Products & Orders</h1>
+    <h2>Admin Dashboard</h2>
     <button class="logout-btn" onclick="logout()">Logout</button>
   </div>
 
-  <!-- Product Form -->
-  <form id="productForm">
-    <label>Title:</label>
-    <input type="text" id="title" required>
-    <label>Price:</label>
-    <input type="number" id="price" required>
-    <label>Image Path (relative to /uploads/):</label>
-    <input type="text" id="img" placeholder="e.g. uploads/shirt.jpg" required>
-    <label>Stock:</label>
-    <input type="number" id="stock" required>
-    <button type="submit">Add Product</button>
-  </form>
+  <div class="container">
 
-  <!-- Products List -->
-  <div class="section">
-    <h2>Existing Products</h2>
-    <div id="productList"></div>
-  </div>
+    <!-- Product Form -->
+    <form id="productForm">
+      <h3>Add New Product</h3>
+      <label>Title:</label>
+      <input type="text" id="title" required>
+      <label>Price:</label>
+      <input type="number" id="price" required>
+      <label>Image Path (relative to /uploads/):</label>
+      <input type="text" id="img" placeholder="e.g. uploads/shirt.jpg" required>
+      <label>Stock:</label>
+      <input type="number" id="stock" required>
+      <button type="submit">Add Product</button>
+    </form>
 
-  <!-- Orders List -->
-  <div class="section">
-    <h2>Received Orders</h2>
-    <div id="orderList"></div>
+    <!-- Products List -->
+    <div class="section">
+      <div class="list-header">
+        <h3>Products</h3>
+        <input type="text" id="productSearch" placeholder="Search products...">
+      </div>
+      <div id="productList"></div>
+    </div>
+
+    <!-- Orders List -->
+    <div class="section">
+      <div class="list-header">
+        <h3>Orders</h3>
+        <div>
+          <input type="text" id="orderSearch" placeholder="Search orders...">
+          <button class="export-btn" onclick="exportOrders()">Export CSV</button>
+        </div>
+      </div>
+      <div id="orderList"></div>
+    </div>
   </div>
 
   <script>
@@ -79,42 +96,50 @@
       try {
         const res = await fetch(`${API_BASE}/api/products`);
         const products = await res.json();
-        const container = document.getElementById("productList");
-        container.innerHTML = "";
-        products.forEach(p => {
-          const div = document.createElement("div");
-          div.className = "product";
-          div.innerHTML = `
-            <img src="${p.img}" alt="${p.title}">
-            <div>
-              <h3>${p.title}</h3>
-              <p>Price: RS.${p.price}</p>
-              <p>Stock: ${p.stock}</p>
-            </div>
-            <div class="actions">
-              <button onclick="deleteProduct('${p.id}')">Delete</button>
-            </div>
-          `;
-          container.appendChild(div);
-        });
+        window.productsCache = products;
+        displayProducts(products);
       } catch (err) { console.error("Failed to load products", err); }
     }
 
+    function displayProducts(products) {
+      const search = document.getElementById("productSearch").value.toLowerCase();
+      const container = document.getElementById("productList");
+      container.innerHTML = "";
+      products.filter(p => p.title.toLowerCase().includes(search)).forEach(p => {
+        const div = document.createElement("div");
+        div.className = "product";
+        div.innerHTML = `
+          <img src="${p.img}" alt="${p.title}">
+          <div>
+            <h4>${p.title}</h4>
+            <p>Price: RS.${p.price}</p>
+            <p>Stock: ${p.stock}</p>
+          </div>
+          <div class="actions">
+            <button onclick="deleteProduct('${p.id}')">Delete</button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    document.getElementById("productSearch").addEventListener("input", () => displayProducts(window.productsCache));
+
     document.getElementById("productForm").onsubmit = async function(e) {
       e.preventDefault();
-      const title = document.getElementById("title").value.trim();
-      const price = document.getElementById("price").value;
-      const img = document.getElementById("img").value.trim();
-      const stock = document.getElementById("stock").value;
-      const product = { title, price, stock, img };
+      const product = {
+        title: document.getElementById("title").value.trim(),
+        price: document.getElementById("price").value,
+        img: document.getElementById("img").value.trim(),
+        stock: document.getElementById("stock").value
+      };
       try {
         const res = await fetch(`${API_BASE}/api/addProduct`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(product)
         });
-        const text = await res.text();
-        alert(text);
+        alert(await res.text());
         loadProducts();
         this.reset();
       } catch (err) { console.error("Error adding product", err); }
@@ -128,8 +153,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id })
         });
-        const text = await res.text();
-        alert(text);
+        alert(await res.text());
         loadProducts();
       } catch (err) { console.error("Error deleting product", err); }
     }
@@ -138,86 +162,92 @@
       try {
         const res = await fetch(`${API_BASE}/api/orders`);
         const orders = await res.json();
-        const container = document.getElementById("orderList");
-        container.innerHTML = "";
-        orders.forEach((o, i) => {
-          const div = document.createElement("div");
-          div.className = "order";
-          div.innerHTML = `
-            <div class="order-details">
-              <p><b>Product:</b> ${o.product}</p>
-              <p><b>Name:</b> ${o.name}</p>
-              <p><b>Contact:</b> ${o.contact}</p>
-              <p><b>Email:</b> ${o.email}</p>
-              <p><b>Address:</b> ${o.address}</p>
-              <p><b>Product Price:</b> RS.${o.productPrice}</p>
-              <p><b>Delivery Charges:</b> RS.${o.deliveryCharges}</p>
-              <p><b>Total (Product + Delivery):</b> RS.${o.totalAmount}</p>
-              <p><b>Payment:</b> ${o.payment}</p>
-            </div>
-            <div class="order-actions">
-              <button onclick="downloadLabel(${i})">Download Label</button>
-            </div>
-          `;
-          container.appendChild(div);
-        });
         window.ordersCache = orders;
+        displayOrders(orders);
       } catch (err) { console.error("Failed to load orders", err); }
     }
 
-    function generateBarcode(text, doc, x, y, w = 100, h = 30) {
-      const canvas = document.createElement("canvas");
-      JsBarcode(canvas, text, { format: "CODE128", width: 2, height: h, displayValue: false });
-      const imgData = canvas.toDataURL("image/png");
-      doc.addImage(imgData, "PNG", x, y, w, h);
+    function displayOrders(orders) {
+      const search = document.getElementById("orderSearch").value.toLowerCase();
+      const container = document.getElementById("orderList");
+      container.innerHTML = "";
+      orders.filter(o => o.name.toLowerCase().includes(search) || o.contact.includes(search)).forEach((o, i) => {
+        const div = document.createElement("div");
+        div.className = "order";
+        div.innerHTML = `
+          <div class="order-details">
+            <p><b>Product:</b> ${o.product}</p>
+            <p><b>Name:</b> ${o.name}</p>
+            <p><b>Contact:</b> ${o.contact}</p>
+            <p><b>Email:</b> ${o.email}</p>
+            <p><b>Address:</b> ${o.address}</p>
+            <p><b>Total:</b> RS.${o.totalAmount}</p>
+            <p><b>Payment:</b> ${o.payment}</p>
+          </div>
+          <div class="order-actions">
+            <button onclick="downloadLabel(${i})">Label</button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    document.getElementById("orderSearch").addEventListener("input", () => displayOrders(window.ordersCache));
+
+    function exportOrders() {
+      const rows = [["Product","Name","Contact","Email","Address","Total","Payment"]];
+      window.ordersCache.forEach(o => rows.push([o.product,o.name,o.contact,o.email,o.address,o.totalAmount,o.payment]));
+      let csv = rows.map(r => r.join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "orders.csv";
+      link.click();
     }
 
     function downloadLabel(index) {
       const o = window.ordersCache[index];
       const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const doc = new jsPDF();
+      doc.setFont("helvetica","bold"); doc.setFontSize(18);
+      doc.text("SHIPPING DETAILS", 70, 20);
 
-      // Heading
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(18);
-      doc.text("SHIPPING DETAILS", 105, 20, null, null, "center");
-      doc.line(20, 25, 190, 25);
+      // Rectangle border
+      doc.setFont("helvetica","normal"); doc.setFontSize(12);
+      doc.rect(20,30,170,140);
 
-      // Box for details
-      doc.rect(20, 30, 170, 140);
+      // Customer details
+      doc.text(`Product: ${o.product}`,25,40);
+      doc.text(`Name: ${o.name}`,25,50);
+      doc.text(`Contact: ${o.contact}`,25,60);
+      doc.text(`Email: ${o.email}`,25,70);
+      doc.text(`Address: ${o.address}`,25,80);
+      doc.text(`Total: RS.${o.totalAmount}`,25,100);
+      doc.text(`Payment: ${o.payment}`,25,110);
 
-      let y = 40;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(12);
+      // Seller/shipper details
+      doc.text("From: Onlinetraderz",25,130);
+      doc.text("Support: 923187900076",25,140);
 
-      doc.text(`Product: ${o.product}`, 25, y); y += 10;
-      doc.text(`Name: ${o.name}`, 25, y); y += 10;
-      doc.text(`Contact: ${o.contact}`, 25, y); y += 10;
-      doc.text(`Email: ${o.email}`, 25, y); y += 10;
-      doc.text(`Address: ${o.address}`, 25, y); y += 10;
-      doc.text(`Product Price: RS.${o.productPrice}`, 25, y); y += 10;
-      doc.text(`Delivery Charges: RS.${o.deliveryCharges}`, 25, y); y += 10;
-      doc.text(`Total (Product + Delivery): RS.${o.totalAmount}`, 25, y); y += 10;
-      doc.text(`Payment: ${o.payment}`, 25, y); y += 20;
+      // Barcodes
+      try {
+        doc.text("Customer Contact:", 25, 155);
+        doc.barcode(o.contact, { x:25, y:160, width:100, height:25 });
 
-      // Customer Contact Barcode
-      doc.text("Customer Contact Barcode:", 25, y);
-      generateBarcode(o.contact, doc, 90, y - 7, 80, 20);
-      y += 30;
+        doc.text("Seller Contact:", 25, 195);
+        doc.barcode("923187900076", { x:25, y:200, width:100, height:25 });
+      } catch (err) {
+        doc.text("⚠️ Barcode generation requires jsPDF-barcode plugin", 25, 190);
+      }
 
-      // Seller Contact Barcode
-      doc.text("Seller Contact Barcode:", 25, y);
-      generateBarcode("923187900076", doc, 90, y - 7, 80, 20);
-
-      doc.save(`shipping_label_${index+1}.pdf`);
+      doc.save(`label_${index+1}.pdf`);
     }
 
     loadProducts();
     loadOrders();
   </script>
 
-  <!-- External libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+  <script src="https://unpkg.com/jspdf-barcode"></script>
 </body>
 </html>
