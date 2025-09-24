@@ -16,6 +16,7 @@
 #include <map>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -27,6 +28,7 @@
 #include <iomanip>
 #include <random>
 #include <fcntl.h>
+#include <signal.h>
 
 using namespace std;
 
@@ -341,6 +343,7 @@ void sendResponse(int clientSocket, const string &status, const string &contentT
     response << "Connection: close\r\n\r\n";
     response << body;
     string resStr = response.str();
+    // note: ignoring send() return here (best-effort)
     send(clientSocket, resStr.c_str(), resStr.size(), 0);
 }
 
@@ -714,6 +717,9 @@ void handleClient(int clientSocket) {
 
 // ------------------- Main -------------------
 int main() {
+    // Ignore SIGPIPE so send() to closed sockets doesn't kill the process
+    signal(SIGPIPE, SIG_IGN);
+
     // Load persisted data
     loadProducts();
     loadOrders();
@@ -727,8 +733,17 @@ int main() {
         return 1;
     }
 
+    // Set socket options properly
     int opt = 1;
-    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        perror("setsockopt SO_REUSEADDR failed");
+    }
+#ifdef SO_REUSEPORT
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) < 0) {
+        // non-fatal on systems that don't support it
+        perror("setsockopt SO_REUSEPORT failed (non-fatal)");
+    }
+#endif
 
     struct sockaddr_in address{};
     address.sin_family = AF_INET;
@@ -750,7 +765,7 @@ int main() {
         return 1;
     }
 
-    cout << "🚀 Server running on http://localhost:" << port << endl;
+    cout << "🚀 Server running on http://0.0.0.0:" << port << " (effective PORT env: " << (envp?envp:"<unset>") << ")\n";
 
     while (true) {
         struct sockaddr_in clientAddr{};
