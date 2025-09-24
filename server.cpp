@@ -1,4 +1,4 @@
-        // server.cpp
+// server.cpp
 // Polished single-file C++ HTTP server for ONLINETRADERZ
 // - No external dependencies
 // - Persistent products & orders stored in data/*.txt
@@ -25,6 +25,7 @@
 #include <chrono>
 #include <iomanip>
 #include <random>
+#include <fcntl.h>
 
 using namespace std;
 
@@ -61,11 +62,12 @@ int currentOrderID = 0;
 string ensureDataFolder(const string &filename) {
     struct stat info;
     if (stat("data", &info) != 0) {
+        // attempt to create 'data' directory
         if (mkdir("data", 0777) != 0 && errno != EEXIST) {
             cerr << "mkdir failed: " << strerror(errno) << "\n";
         }
     }
-    return filename.empty() ? "data/" : "data/" + filename;
+    return filename.empty() ? "data/" : string("data/") + filename;
 }
 
 string trim(const string &s) {
@@ -89,20 +91,51 @@ string nowISO8601() {
 }
 
 string readFile(const string &path) {
-    ifstream file(path);
+    ifstream file(path, ios::in);
     if (!file.is_open()) return "";
     stringstream buffer;
     buffer << file.rdbuf();
     return buffer.str();
 }
 
-void writeFile(const string &path, const string &content) {
-    ofstream f(path, ios::trunc);
-    if (!f.is_open()) {
-        cerr << "Failed to write file: " << path << "\n";
-        return;
+// atomic write helper: write to temp file then rename, ensure fsync
+bool atomicWriteFile(const string &path, const string &content) {
+    // ensure parent directory exists
+    string dir = path.substr(0, path.find_last_of('/') + 1);
+    if (!dir.empty()) {
+        struct stat info;
+        if (stat(dir.c_str(), &info) != 0) {
+            if (mkdir(dir.c_str(), 0777) != 0 && errno != EEXIST) {
+                cerr << "mkdir failed: " << strerror(errno) << "\n";
+                // continue; attempt to write anyway
+            }
+        }
     }
-    f << content;
+
+    string tmp = path + ".tmp";
+    int fd = open(tmp.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd < 0) {
+        cerr << "Failed to open temp file for writing: " << tmp << " : " << strerror(errno) << "\n";
+        return false;
+    }
+    ssize_t written = write(fd, content.c_str(), content.size());
+    if (written < 0 || (size_t)written != content.size()) {
+        cerr << "Failed to write entire content to temp file: " << tmp << " : " << strerror(errno) << "\n";
+        close(fd);
+        return false;
+    }
+    // flush to disk
+    if (fsync(fd) != 0) {
+        cerr << "fsync failed on temp file: " << tmp << " : " << strerror(errno) << "\n";
+    }
+    close(fd);
+    if (rename(tmp.c_str(), path.c_str()) != 0) {
+        cerr << "rename failed: " << strerror(errno) << "\n";
+        // attempt to remove tmp
+        unlink(tmp.c_str());
+        return false;
+    }
+    return true;
 }
 
 // ------------------- Storage (products & orders) -------------------
@@ -143,15 +176,21 @@ void loadProducts() {
 
 void saveProducts() {
     string path = ensureDataFolder("products.txt");
-    ofstream file(path, ios::trunc);
-    if (!file.is_open()) {
-        cerr << "Failed to open products.txt for writing!\n";
-        return;
-    }
+    stringstream ss;
     for (auto &p : products) {
-        file << p.id << "|" << p.title << "|" << fixed << setprecision(2) << p.price << "|" << p.img << "|" << p.stock << "\n";
+        ss << p.id << "|" << p.title << "|" << fixed << setprecision(2) << p.price << "|" << p.img << "|" << p.stock << "\n";
     }
-    file.close();
+    string content = ss.str();
+    if (!atomicWriteFile(path, content)) {
+        // fallback to regular write
+        ofstream file(path, ios::trunc);
+        if (!file.is_open()) {
+            cerr << "Failed to open products.txt for writing!\n";
+            return;
+        }
+        file << content;
+        file.close();
+    }
 }
 
 void loadOrders() {
@@ -190,17 +229,23 @@ void loadOrders() {
 
 void saveOrders() {
     string path = ensureDataFolder("orders.txt");
-    ofstream file(path, ios::trunc);
-    if (!file.is_open()) {
-        cerr << "Failed to open orders.txt for writing!\n";
-        return;
-    }
+    stringstream ss;
     for (auto &o : orders) {
-        file << o.id << "|" << o.product << "|" << o.name << "|" << o.contact << "|"
-             << o.email << "|" << o.address << "|" << o.productPrice << "|" << o.deliveryCharges << "|"
-             << o.totalAmount << "|" << o.payment << "|" << o.createdAt << "|\n";
+        ss << o.id << "|" << o.product << "|" << o.name << "|" << o.contact << "|"
+           << o.email << "|" << o.address << "|" << o.productPrice << "|" << o.deliveryCharges << "|"
+           << o.totalAmount << "|" << o.payment << "|" << o.createdAt << "|\n";
     }
-    file.close();
+    string content = ss.str();
+    if (!atomicWriteFile(path, content)) {
+        // fallback to regular write
+        ofstream file(path, ios::trunc);
+        if (!file.is_open()) {
+            cerr << "Failed to open orders.txt for writing!\n";
+            return;
+        }
+        file << content;
+        file.close();
+    }
 }
 
 string generateProductID() { return "p" + to_string(++currentProductID); }
@@ -569,6 +614,7 @@ void handleClient(int clientSocket) {
         o.createdAt = nowISO8601();
 
         orders.push_back(o);
+        // Persist orders immediately and robustly
         saveOrders();
 
         // Return order id so frontend can link to shipping label
@@ -637,7 +683,7 @@ void handleClient(int clientSocket) {
         html += "<div><strong>Total:</strong> RS." + htmlEscape(found->totalAmount) + "</div>\n";
         html += "</div>\n";
         html += "<div class='barcode-wrap'>\n";
-        html += generateBarcodeHtml(found->id + "|" + found->createdAt + "|" + found->contact);
+        html += generateBarcodeHtml(found->id + \"|\" + found->createdAt + \"|\" + found->contact);
         html += "</div>\n";
         html += "<div style='text-align:center;margin-top:14px;color:#666;font-size:12px'>Printed: " + nowISO8601() + "</div>\n";
         html += "</div>\n</body></html>";
