@@ -1,17 +1,17 @@
-# Use the official GCC image to build the C++ project
-FROM gcc:latest
+# Use GCC with C++17 support
+FROM gcc:12
 
-# Set working directory inside the container
+# Set working directory inside container
 WORKDIR /app
 
-# Copy all project files into the container
+# Copy all project files
 COPY . .
 
-# Compile the C++ server (make sure server.cpp is present)
-RUN g++ -std=c++17 -o server server.cpp
+# Compile the C++ server
+RUN g++ -std=c++17 -O2 -pthread -o server server.cpp
 
-# Expose port (Railway/Render will map to $PORT automatically)
-EXPOSE $PORT
+# Expose a default port (Render injects $PORT at runtime)
+EXPOSE 8080
 
-# Run the compiled server binary
+# Run the server (it reads $PORT automatically)
 CMD ["./server"]
