@@ -1,4 +1,4 @@
-        <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -29,7 +29,7 @@
     .order-actions button:hover { background: #0056b3; }
     .export-btn { background: #17a2b8; }
     .export-btn:hover { background: #117a8b; }
-    /* hidden canvases for barcodes */
+    /* hidden canvases for barcode generation */
     #barcodeCanvasCustomer, #barcodeCanvasSeller { display:none; }
   </style>
 </head>
@@ -86,6 +86,7 @@
     </div>
   </div>
 
+  <!-- hidden canvases for barcode images -->
   <canvas id="barcodeCanvasCustomer"></canvas>
   <canvas id="barcodeCanvasSeller"></canvas>
 
@@ -212,7 +213,7 @@
 
     function generateBarcode(text, canvasId) {
       const canvas = document.getElementById(canvasId);
-      JsBarcode(canvas, text, { format: "CODE128", width: 2, height: 50, displayValue: true });
+      JsBarcode(canvas, text, { format: "CODE128", width: 1.2, height: 25, displayValue: true });
       return canvas.toDataURL("image/png");
     }
 
@@ -220,7 +221,6 @@
       const o = window.ordersCache[index];
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
-
       doc.setFont("helvetica","bold"); doc.setFontSize(18);
       doc.text("SHIPPING DETAILS", 70, 20);
 
@@ -232,21 +232,21 @@
       doc.text(`Product: ${o.product}`,25,40);
       doc.text(`Name: ${o.name}`,25,50);
       doc.text(`Contact: ${o.contact}`,25,60);
-      doc.text(`Email: ${o.email}`,25,70);
-      doc.text(`Address: ${o.address}`,25,80);
-      doc.text(`Total: RS.${o.totalAmount}`,25,100);
-      doc.text(`Payment: ${o.payment}`,25,110);
+      // Customer barcode under contact
+      const customerBarcode = generateBarcode(o.contact, "barcodeCanvasCustomer");
+      doc.addImage(customerBarcode, "PNG", 25, 65, 80, 20);
+
+      doc.text(`Email: ${o.email}`,25,90);
+      doc.text(`Address: ${o.address}`,25,100);
+      doc.text(`Total: RS.${o.totalAmount}`,25,115);
+      doc.text(`Payment: ${o.payment}`,25,125);
 
       // Seller/shipper details
-      doc.text("From: Onlinetraderz",25,130);
-      doc.text("Support: 923187900076",25,140);
-
-      // Barcodes
-      const customerBarcode = generateBarcode(o.contact, "barcodeCanvasCustomer");
-      doc.addImage(customerBarcode, "PNG", 25, 150, 100, 25);
-
+      doc.text("From: Onlinetraderz",25,140);
+      doc.text("Support: 923187900076",25,150);
+      // Seller barcode under seller contact
       const sellerBarcode = generateBarcode("923187900076", "barcodeCanvasSeller");
-      doc.addImage(sellerBarcode, "PNG", 25, 185, 100, 25);
+      doc.addImage(sellerBarcode, "PNG", 25, 155, 80, 20);
 
       doc.save(`label_${index+1}.pdf`);
     }
