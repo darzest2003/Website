@@ -8,6 +8,7 @@
 // - Basic JSON/form parsing compatible with your front-end
 
 #include <iostream>
+#include <cstdlib>
 #include <fstream>
 #include <sstream>
 #include <string>
