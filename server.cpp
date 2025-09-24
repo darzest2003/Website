@@ -18,6 +18,7 @@
 // ============================================================================
 
 #include <iostream>
+#include <netinet/tcp.h>
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
