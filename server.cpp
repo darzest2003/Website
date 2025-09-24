@@ -459,9 +459,22 @@ void handleClient(int clientSocket) {
     }
     else if (path.find("/api/deleteProduct") == 0 && method == "POST") {
         std::string id = extractValue(body, "id");
-        auto it = std::remove_if(products.begin(), products.end(), [&](const Product& p){ return p.id == id; });
-        if(it != products.end()) {
+        // fallback for form-urlencoded if JSON parsing yields nothing
+        if (id.empty()) {
+            auto form = parseFormUrlEncoded(body);
+            if (form.find("id") != form.end()) id = form["id"];
+        }
+        id = trim(id);
+
+        size_t beforeCount = products.size();
+        auto it = std::remove_if(products.begin(), products.end(), [&](const Product& p){
+            return trim(p.id) == id;
+        });
+        if (it != products.end()) {
             products.erase(it, products.end());
+        }
+
+        if (products.size() < beforeCount) {
             saveProducts();
             sendResponse(clientSocket, "200 OK", "text/plain", "Product deleted successfully");
         } else {
@@ -530,4 +543,4 @@ int main() {
 
     close(server_fd);
     return 0;
-}  
+}
