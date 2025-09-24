@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+        <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -29,6 +29,8 @@
     .order-actions button:hover { background: #0056b3; }
     .export-btn { background: #17a2b8; }
     .export-btn:hover { background: #117a8b; }
+    /* hidden canvases for barcodes */
+    #barcodeCanvasCustomer, #barcodeCanvasSeller { display:none; }
   </style>
 </head>
 <body>
@@ -83,6 +85,9 @@
       <div id="orderList"></div>
     </div>
   </div>
+
+  <canvas id="barcodeCanvasCustomer"></canvas>
+  <canvas id="barcodeCanvasSeller"></canvas>
 
   <script>
     const API_BASE = "https://cppbackened.onrender.com";
@@ -205,16 +210,23 @@
       link.click();
     }
 
+    function generateBarcode(text, canvasId) {
+      const canvas = document.getElementById(canvasId);
+      JsBarcode(canvas, text, { format: "CODE128", width: 2, height: 50, displayValue: true });
+      return canvas.toDataURL("image/png");
+    }
+
     function downloadLabel(index) {
       const o = window.ordersCache[index];
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
+
       doc.setFont("helvetica","bold"); doc.setFontSize(18);
       doc.text("SHIPPING DETAILS", 70, 20);
 
       // Rectangle border
       doc.setFont("helvetica","normal"); doc.setFontSize(12);
-      doc.rect(20,30,170,140);
+      doc.rect(20,30,170,160);
 
       // Customer details
       doc.text(`Product: ${o.product}`,25,40);
@@ -230,15 +242,11 @@
       doc.text("Support: 923187900076",25,140);
 
       // Barcodes
-      try {
-        doc.text("Customer Contact:", 25, 155);
-        doc.barcode(o.contact, { x:25, y:160, width:100, height:25 });
+      const customerBarcode = generateBarcode(o.contact, "barcodeCanvasCustomer");
+      doc.addImage(customerBarcode, "PNG", 25, 150, 100, 25);
 
-        doc.text("Seller Contact:", 25, 195);
-        doc.barcode("923187900076", { x:25, y:200, width:100, height:25 });
-      } catch (err) {
-        doc.text("⚠️ Barcode generation requires jsPDF-barcode plugin", 25, 190);
-      }
+      const sellerBarcode = generateBarcode("923187900076", "barcodeCanvasSeller");
+      doc.addImage(sellerBarcode, "PNG", 25, 185, 100, 25);
 
       doc.save(`label_${index+1}.pdf`);
     }
@@ -248,6 +256,6 @@
   </script>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://unpkg.com/jspdf-barcode"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 </body>
 </html>
