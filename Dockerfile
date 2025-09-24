@@ -1,10 +1,11 @@
 # Use a stable and lightweight base image
 FROM ubuntu:22.04
 
-# Install build tools (g++, make, pthreads, libc headers)
+# Install build tools (g++, make, pthreads, libc headers, netcat for debugging)
 RUN apt-get update && apt-get install -y \
     g++ \
     make \
+    netcat \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -19,8 +20,8 @@ RUN mkdir -p data public
 # Build the C++ server (optimized with pthread support)
 RUN g++ -std=c++17 -O2 -pthread -o server server.cpp
 
-# Expose Render’s port (Render injects $PORT automatically)
+# Render injects PORT automatically (we’ll map to 8080 in server.cpp if unset)
 EXPOSE 8080
 
-# Start the server (your code already reads $PORT or defaults to 8080)
+# Run the server
 CMD ["./server"]
