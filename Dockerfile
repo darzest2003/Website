@@ -1,11 +1,5 @@
-# Use the official GCC image
-FROM gcc:latest
 
-# Set working directory inside container
-WORKDIR /app
-
-# Copy project files
-COPY # Use a stable and lightweight base image
+# Use a stable and lightweight base image
 FROM ubuntu:22.04
 
 # Install build tools (g++, make, pthreads, libc headers)
