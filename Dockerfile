@@ -1,17 +1,21 @@
-# Use official GCC image to build
-FROM gcc:latest
+# Use GCC with C++17 support
+FROM gcc:12
 
 # Set working directory
 WORKDIR /app
 
-# Copy project files
-COPY . .
+# Copy source code and public assets
+COPY server.cpp .
+COPY public ./public
 
-# Compile your server
+# Build server (compile inside image)
 RUN g++ -std=c++17 -O2 -pthread -o server server.cpp
 
-# Expose a default port (Render injects $PORT at runtime)
+# Create data directory
+RUN mkdir -p data
+
+# Expose Render's runtime port
 EXPOSE 8080
 
-# Run the server (it will use $PORT if set, otherwise 8080)
-CMD ["./server"]
+# Render injects $PORT, so we pass it to the server
+CMD ["sh", "-c", "./server"]
