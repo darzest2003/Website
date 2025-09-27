@@ -1,4 +1,4 @@
-// server.cpp
+         // server.cpp
 // Polished single-file C++ HTTP server for ONLINETRADERZ
 // - No external dependencies
 // - Persistent products & orders stored in data/*.txt
@@ -862,42 +862,48 @@ void handleClient(int clientSocket) {
     string contentType = "text/html";
     string assetLower = assetPath;
     transform(assetLower.begin(), assetLower.end(), assetLower.begin(), ::tolower);
-    if (assetPath.find(".css") != string::npos) contentType = "text/css";
-    else if (assetPath.find(".js") != string::npos) contentType = "application/javascript";
-    else if (assetPath.find(".png") != string::npos) contentType = "image/png";
-    else if (assetPath.find(".jpg") != string::npos || assetPath.find(".jpeg") != string::npos) contentType = "image/jpeg";
-    else if (assetPath.find(".svg") != string::npos) contentType = "image/svg+xml";
-    else if (assetPath.find(".gif") != string::npos) contentType = "image/gif";
-    else if (assetPath.find(".webp") != string::npos) contentType = "image/webp";
-    else if (assetPath.find(".ico") != string::npos) contentType = "image/x-icon";
-    else if (assetPath.find(".bmp") != string::npos) contentType = "image/bmp";
-    else if (assetPath.find(".avif") != string::npos) contentType = "image/avif";
+    if (assetLower.find(".css") != string::npos) contentType = "text/css";
+    else if (assetLower.find(".js") != string::npos) contentType = "application/javascript";
+    else if (assetLower.find(".png") != string::npos) contentType = "image/png";
+    else if (assetLower.find(".jpg") != string::npos || assetLower.find(".jpeg") != string::npos) contentType = "image/jpeg";
+    else if (assetLower.find(".svg") != string::npos) contentType = "image/svg+xml";
+    else if (assetLower.find(".gif") != string::npos) contentType = "image/gif";
+    else if (assetLower.find(".webp") != string::npos) contentType = "image/webp";
+    else if (assetLower.find(".ico") != string::npos) contentType = "image/x-icon";
+    else if (assetLower.find(".bmp") != string::npos) contentType = "image/bmp";
+    else if (assetLower.find(".avif") != string::npos) contentType = "image/avif";
 
     // For images and other binary types, read binary and send with binary sender
     bool isBinary = false;
-    if (assetPath.find(".png") != string::npos ||
-        assetPath.find(".jpg") != string::npos ||
-        assetPath.find(".jpeg") != string::npos ||
-        assetPath.find(".gif") != string::npos ||
-        assetPath.find(".webp") != string::npos ||
-        assetPath.find(".ico") != string::npos ||
-        assetPath.find(".bmp") != string::npos ||
-        assetPath.find(".avif") != string::npos) {
+    if (assetLower.find(".png") != string::npos ||
+        assetLower.find(".jpg") != string::npos ||
+        assetLower.find(".jpeg") != string::npos ||
+        assetLower.find(".gif") != string::npos ||
+        assetLower.find(".webp") != string::npos ||
+        assetLower.find(".ico") != string::npos ||
+        assetLower.find(".bmp") != string::npos ||
+        assetLower.find(".avif") != string::npos) {
         isBinary = true;
     }
 
+    // Build full path and log it (helps debugging missing files)
+    string fullPath = "public" + assetPath;
+    LOGI(string("Static request -> ") + fullPath);
+
     if (isBinary) {
-        string fileContentBin = readFileBinary("public" + assetPath);
+        string fileContentBin = readFileBinary(fullPath);
         if (!fileContentBin.empty()) {
             sendBinaryResponse(clientSocket, "200 OK", contentType, fileContentBin);
         } else {
+            LOGW(string("Static file not found: ") + fullPath);
             sendResponse(clientSocket, "404 Not Found", "text/html", "<h1>404 Not Found</h1>");
         }
     } else {
-        string fileContent = readFile("public" + assetPath);
+        string fileContent = readFile(fullPath);
         if (!fileContent.empty()) {
             sendResponse(clientSocket, "200 OK", contentType, fileContent);
         } else {
+            LOGW(string("Static file not found: ") + fullPath);
             sendResponse(clientSocket, "404 Not Found", "text/html", "<h1>404 Not Found</h1>");
         }
     }
