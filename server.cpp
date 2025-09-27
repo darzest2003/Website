@@ -664,7 +664,7 @@ void handleClient(int clientSocket) {
             close(clientSocket);
             return;
         }
-        if (p.img.empty()) p.img = "https://via.placeholder.com/200";
+        if (p.img.empty()) p.img = "uploads/product1.jpg"; // stored under /public/uploads/
 
         products.push_back(p);
         saveProducts();
