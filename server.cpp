@@ -809,7 +809,7 @@ void handleClient(int clientSocket) {
         html += "<div><strong>Total:</strong> RS." + htmlEscape(found->totalAmount) + "</div>\n";
         html += "</div>\n";
         html += "<div class='barcode-wrap'>\n";
-        html += generateBarcodeHtml(found->id + \"|\" + found->createdAt + \"|\" + found->contact);
+        html += generateBarcodeHtml(found->id + "|" + found->createdAt + "|" + found->contact);
         html += "</div>\n";
         html += "<div style='text-align:center;margin-top:14px;color:#666;font-size:12px'>Printed: " + nowISO8601() + "</div>\n";
         html += "</div>\n</body></html>";
