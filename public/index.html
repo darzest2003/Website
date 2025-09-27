@@ -291,15 +291,23 @@ async function loadProducts(){
       // ensure id exists
       const id = p.id || p._id || (p.title ? p.title.replace(/\s+/g,'-').toLowerCase() : String(Math.random()).slice(2,8));
       // normalize img
-      let img = p.img || '';
-      if(typeof img === 'string'){
-        img = img.trim();
-        if(img && !img.startsWith('http') && !img.startsWith('/')){
-          // handle relative paths uploaded like "uploads/pic.jpg"
-          img = `${API_BASE}/${img}`;
-        } else if(img && img.startsWith('/')){
-          img = `${API_BASE}${img}`;
-        }
+let img = p.img || '';
+if (typeof img === 'string') {
+  img = img.trim();
+  if (img) {
+    // remove leading "public/" if backend includes it
+    if (img.startsWith('public/')) {
+      img = img.replace(/^public\//, '');
+    }
+    // build absolute URL
+    if (!img.startsWith('http')) {
+      if (!img.startsWith('/')) img = '/' + img;
+      img = API_BASE + img;
+    }
+  }
+} else {
+  img = '';
+}
       } else {
         img = '';
       }
