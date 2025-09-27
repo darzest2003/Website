@@ -218,6 +218,15 @@ string readFile(const string &path) {
     return buffer.str();
 }
 
+// --- NEW: read file in binary mode and return as string of bytes ---
+string readFileBinary(const string &path) {
+    ifstream file(path, ios::in | ios::binary);
+    if (!file.is_open()) return "";
+    std::ostringstream ss;
+    ss << file.rdbuf();
+    return ss.str();
+}
+
 // atomic write helper: write to temp file then rename, ensure fsync
 bool atomicWriteFile(const string &path, const string &content) {
     // ensure parent directory exists
@@ -466,6 +475,33 @@ void sendResponse(int clientSocket, const string &status, const string &contentT
     string resStr = response.str();
     // note: ignoring send() return here (best-effort)
     send(clientSocket, resStr.c_str(), resStr.size(), 0);
+}
+
+// --- NEW: send binary response (headers + raw bytes) ---
+void sendBinaryResponse(int clientSocket, const string &status, const string &contentType, const string &bodyBytes) {
+    stringstream response;
+    response << "HTTP/1.1 " << status << "\r\n";
+    response << "Content-Type: " << contentType << "\r\n";
+    response << "Access-Control-Allow-Origin: *\r\n";
+    response << "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n";
+    response << "Access-Control-Allow-Headers: Content-Type\r\n";
+    response << "Content-Length: " << bodyBytes.size() << "\r\n";
+    response << "Connection: close\r\n\r\n";
+    string headerStr = response.str();
+    // send headers
+    send(clientSocket, headerStr.c_str(), headerStr.size(), 0);
+    // send body bytes (may contain nulls)
+    if (!bodyBytes.empty()) {
+        ssize_t sent = 0;
+        const char *data = bodyBytes.data();
+        size_t remaining = bodyBytes.size();
+        while (remaining > 0) {
+            ssize_t n = send(clientSocket, data + sent, remaining, 0);
+            if (n <= 0) break;
+            sent += n;
+            remaining -= n;
+        }
+    }
 }
 
 string getQueryParam(const string &path, const string &key) {
@@ -821,19 +857,51 @@ void handleClient(int clientSocket) {
     // Serve static files from public/ (fallback)
     string assetPath = path;
     if (assetPath == "/") assetPath = "/index.html";
-    string fileContent = readFile("public" + assetPath);
+
+    // Determine content type first
     string contentType = "text/html";
+    string assetLower = assetPath;
+    transform(assetLower.begin(), assetLower.end(), assetLower.begin(), ::tolower);
     if (assetPath.find(".css") != string::npos) contentType = "text/css";
     else if (assetPath.find(".js") != string::npos) contentType = "application/javascript";
     else if (assetPath.find(".png") != string::npos) contentType = "image/png";
     else if (assetPath.find(".jpg") != string::npos || assetPath.find(".jpeg") != string::npos) contentType = "image/jpeg";
     else if (assetPath.find(".svg") != string::npos) contentType = "image/svg+xml";
+    else if (assetPath.find(".gif") != string::npos) contentType = "image/gif";
+    else if (assetPath.find(".webp") != string::npos) contentType = "image/webp";
+    else if (assetPath.find(".ico") != string::npos) contentType = "image/x-icon";
+    else if (assetPath.find(".bmp") != string::npos) contentType = "image/bmp";
+    else if (assetPath.find(".avif") != string::npos) contentType = "image/avif";
 
-    if (!fileContent.empty()) {
-        sendResponse(clientSocket, "200 OK", contentType, fileContent);
-    } else {
-        sendResponse(clientSocket, "404 Not Found", "text/html", "<h1>404 Not Found</h1>");
+    // For images and other binary types, read binary and send with binary sender
+    bool isBinary = false;
+    if (assetPath.find(".png") != string::npos ||
+        assetPath.find(".jpg") != string::npos ||
+        assetPath.find(".jpeg") != string::npos ||
+        assetPath.find(".gif") != string::npos ||
+        assetPath.find(".webp") != string::npos ||
+        assetPath.find(".ico") != string::npos ||
+        assetPath.find(".bmp") != string::npos ||
+        assetPath.find(".avif") != string::npos) {
+        isBinary = true;
     }
+
+    if (isBinary) {
+        string fileContentBin = readFileBinary("public" + assetPath);
+        if (!fileContentBin.empty()) {
+            sendBinaryResponse(clientSocket, "200 OK", contentType, fileContentBin);
+        } else {
+            sendResponse(clientSocket, "404 Not Found", "text/html", "<h1>404 Not Found</h1>");
+        }
+    } else {
+        string fileContent = readFile("public" + assetPath);
+        if (!fileContent.empty()) {
+            sendResponse(clientSocket, "200 OK", contentType, fileContent);
+        } else {
+            sendResponse(clientSocket, "404 Not Found", "text/html", "<h1>404 Not Found</h1>");
+        }
+    }
+
     close(clientSocket);
 }
 
