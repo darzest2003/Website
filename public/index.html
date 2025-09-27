@@ -298,9 +298,19 @@ async function loadProducts(){
         img = img.replace(/^public\//, '');
       }
       // build absolute URL
-      if (!img.startsWith('http')) {
-        if (!img.startsWith('/')) img = '/' + img;
-        img = API_BASE + img;
+      if (typeof img === 'string') {
+  img = img.trim();
+  if (img) {
+    if (img.startsWith('public/')) {
+      img = img.replace(/^public\//, ''); // remove "public/"
+    }
+    if (!img.startsWith('http')) {
+      if (!img.startsWith('/')) img = '/' + img;
+      img = API_BASE + img;  // final absolute URL
+    }
+  }
+} else {
+  img = '';
       }
     }
   } else {
