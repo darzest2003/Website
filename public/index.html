@@ -286,33 +286,29 @@ async function loadProducts(){
 
     // Normalize product objects:
     allProducts = allProducts.map(p=>{
-      // avoid breaking if p is not an object
-      p = p || {};
-      // ensure id exists
-      const id = p.id || p._id || (p.title ? p.title.replace(/\s+/g,'-').toLowerCase() : String(Math.random()).slice(2,8));
-      // normalize img
-let img = p.img || '';
-if (typeof img === 'string') {
-  img = img.trim();
-  if (img) {
-    // remove leading "public/" if backend includes it
-    if (img.startsWith('public/')) {
-      img = img.replace(/^public\//, '');
-    }
-    // build absolute URL
-    if (!img.startsWith('http')) {
-      if (!img.startsWith('/')) img = '/' + img;
-      img = API_BASE + img;
-    }
-  }
-} else {
-  img = '';
-}
-      } else {
-        img = '';
+  p = p || {};
+  const id = p.id || p._id || (p.title ? p.title.replace(/\s+/g,'-').toLowerCase() : String(Math.random()).slice(2,8));
+
+  let img = p.img || '';
+  if (typeof img === 'string') {
+    img = img.trim();
+    if (img) {
+      // remove leading "public/"
+      if (img.startsWith('public/')) {
+        img = img.replace(/^public\//, '');
       }
-      return {...p, id, img};
-    });
+      // build absolute URL
+      if (!img.startsWith('http')) {
+        if (!img.startsWith('/')) img = '/' + img;
+        img = API_BASE + img;
+      }
+    }
+  } else {
+    img = '';
+  }
+
+  return {...p, id, img};
+});
 
     document.getElementById('productCount').textContent = allProducts.length;
     renderProducts();
