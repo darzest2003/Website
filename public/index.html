@@ -290,15 +290,7 @@ async function loadProducts(){
   const id = p.id || p._id || (p.title ? p.title.replace(/\s+/g,'-').toLowerCase() : String(Math.random()).slice(2,8));
 
   let img = p.img || '';
-  if (typeof img === 'string') {
-    img = img.trim();
-    if (img) {
-      // remove leading "public/"
-      if (img.startsWith('public/')) {
-        img = img.replace(/^public\//, '');
-      }
-      // build absolute URL
-      if (typeof img === 'string') {
+if (typeof img === 'string') {
   img = img.trim();
   if (img) {
     if (img.startsWith('public/')) {
@@ -311,11 +303,7 @@ async function loadProducts(){
   }
 } else {
   img = '';
-      }
-    }
-  } else {
-    img = '';
-  }
+}
 
   return {...p, id, img};
 });
