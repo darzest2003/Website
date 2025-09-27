@@ -1,17 +1,33 @@
-# Use GCC with C++17 support
-FROM gcc:12
+# Use Debian-based image with build tools
+FROM debian:bullseye-slim AS build
 
-# Set working directory inside container
+# Install g++ and other dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    g++ make ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set work directory
 WORKDIR /app
 
-# Copy all project files
-COPY . .
+# Copy server code
+COPY server.cpp .
 
-# Compile the C++ server
-RUN g++ -std=c++17 -O2 -pthread -o server server.cpp
+# Compile the server
+RUN g++ -std=c++17 -O2 -pthread server.cpp -o server
 
-# Expose a default port (Render injects $PORT at runtime)
+# Runtime image (small, only final binary)
+FROM debian:bullseye-slim
+
+WORKDIR /app
+
+# Copy compiled binary from build stage
+COPY --from=build /app/server .
+
+# Create data & public folders
+RUN mkdir -p /app/data /app/public
+
+# Expose the port (Render will set PORT automatically)
 EXPOSE 8080
 
-# Run the server (it reads $PORT automatically)
-CMD ["./server"]
+# Run server, binding to $PORT
+CMD ["sh", "-c", "./server"]
