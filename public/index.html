@@ -5,256 +5,487 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>ONLINETRADERZ — Shop</title>
 
+<!-- A crisp system font stack; you may swap in Google Fonts if you like -->
 <style>
   :root{
     --accent:#25D366;
     --accent-dark:#1fa34f;
     --muted:#6b7280;
     --card-bg:#ffffff;
-    --page-bg:#f9fafb;
-    --radius:14px;
-    --shadow:0 8px 30px rgba(15,23,42,0.08);
+    --page-bg:#f6f7fb;
+    --radius:12px;
+    --shadow: 0 8px 24px rgba(15,23,42,0.06);
     --max-width:1200px;
   }
 
-  *{box-sizing:border-box;margin:0;padding:0}
+  /* Reset-ish */
+  *{box-sizing:border-box}
+  html,body{height:100%}
   body{
-    font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial;
+    margin:0;
+    font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
     background:var(--page-bg);
-    color:#111827;
-    line-height:1.5;
+    color:#0f172a;
     -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+    line-height:1.4;
   }
 
-  .wrap{max-width:var(--max-width);margin:0 auto;padding:0 16px}
+  /* Container */
+  .wrap{max-width:var(--max-width);margin:24px auto;padding:0 16px;}
 
   /* Header */
   header.site-header{
-    background:#fff;
-    box-shadow:0 1px 4px rgba(0,0,0,0.06);
-    position:sticky;top:0;z-index:100;
+    position:sticky;top:0;z-index:60;
+    backdrop-filter: blur(6px);
+    background:rgba(255,255,255,0.85);
+    border-bottom:1px solid rgba(15,23,42,0.04);
   }
-  .hdr-inner{
-    display:flex;justify-content:space-between;align-items:center;
-    padding:14px 16px;max-width:var(--max-width);margin:auto;
-  }
-  .logo{font-weight:800;font-size:1.4rem;color:#05204A;}
-  nav.main-nav{display:flex;gap:18px}
-  nav.main-nav a{color:#111827;text-decoration:none;font-weight:600;font-size:0.95rem;transition:color .2s}
-  nav.main-nav a:hover{color:var(--accent-dark)}
-  .cart-btn{
-    position:relative;background:var(--accent);color:#fff;
-    padding:9px 14px;border-radius:10px;border:none;font-weight:700;cursor:pointer;
-  }
-  .cart-count{
-    position:absolute;top:-6px;right:-6px;background:#05204A;color:#fff;
-    border-radius:50%;padding:3px 7px;font-size:12px;
-  }
+  .hdr-inner{display:flex;align-items:center;justify-content:space-between;gap:16px;max-width:var(--max-width);margin:0 auto;padding:10px 16px;}
+  .logo{font-weight:700;font-size:1.25rem;color:#05204A;letter-spacing:0.4px}
+  nav.main-nav{display:flex;align-items:center;gap:14px}
+  nav.main-nav a{color:#0f172a;text-decoration:none;font-weight:600;padding:8px 10px;border-radius:8px}
+  nav.main-nav a:hover{background:rgba(37,211,102,0.08);color:var(--accent-dark)}
+  .controls{display:flex;align-items:center;gap:10px}
+  .theme-switch button{border:0;background:transparent;padding:6px;border-radius:8px;cursor:pointer}
+  .cart-btn{position:relative;background:var(--accent);color:#fff;padding:8px 12px;border-radius:10px;border:none;cursor:pointer;font-weight:700}
+  .cart-count{position:absolute;top:-6px;right:-8px;display:inline-block;background:#05204A;color:#fff;border-radius:50%;padding:3px 7px;font-size:12px}
 
   /* Hero */
-  .hero{
-    background:linear-gradient(135deg,#e8f9ee,#fff);
-    border-radius:18px;display:flex;align-items:center;justify-content:space-between;
-    padding:40px 28px;margin:36px 0;flex-wrap:wrap;gap:20px;
-  }
-  .hero h1{font-size:2rem;font-weight:800;margin-bottom:12px;color:#05204A;}
-  .hero p{color:var(--muted);max-width:520px;margin-bottom:18px;}
-  .hero-cta{display:flex;gap:12px;flex-wrap:wrap;}
-  .btn-primary{
-    background:var(--accent);border:none;color:#fff;font-weight:700;
-    padding:12px 22px;border-radius:10px;cursor:pointer;
-    transition:background .2s,transform .15s;
-  }
-  .btn-primary:hover{background:var(--accent-dark);transform:translateY(-2px);}
-  .btn-ghost{
-    background:transparent;border:1.5px solid rgba(0,0,0,0.08);
-    padding:12px 22px;border-radius:10px;cursor:pointer;font-weight:600;
-    color:#05204A;
-    transition:background .2s;
-  }
-  .btn-ghost:hover{background:rgba(37,211,102,0.08);}
-  .hero-right img{width:300px;border-radius:16px;box-shadow:var(--shadow);}
+  .hero{display:flex;align-items:center;gap:20px;margin:22px 0;padding:28px;border-radius:16px;background:linear-gradient(180deg,#fff,#fbfdff);box-shadow:var(--shadow)}
+  .hero-left{flex:1}
+  .hero h1{margin:0;font-size:clamp(20px,3vw,32px);color:#05204A}
+  .hero p{margin:10px 0;color:var(--muted)}
+  .hero-cta{display:flex;gap:12px;margin-top:12px}
+  .btn-primary{background:var(--accent);color:#fff;padding:10px 16px;border-radius:10px;border:0;cursor:pointer;font-weight:700}
+  .btn-ghost{background:transparent;border:1px solid rgba(5,32,74,0.06);padding:10px 14px;border-radius:10px;cursor:pointer}
 
-  /* Category section */
-  .categories{
-    margin-top:20px;
-  }
-  .categories h2{font-size:1.4rem;margin-bottom:14px;color:#05204A;}
-  .category-grid{
-    display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
-    gap:16px;
-  }
-  .category{
-    background:#fff;border-radius:var(--radius);
-    box-shadow:0 4px 10px rgba(0,0,0,0.04);
-    text-align:center;padding:24px;transition:transform .15s,box-shadow .15s;
-  }
-  .category:hover{transform:translateY(-4px);box-shadow:var(--shadow);}
-  .category img{width:48px;height:48px;margin-bottom:10px;}
-  .category h3{font-size:1rem;color:#111827;}
+  .hero-right{width:260px;display:flex;justify-content:center}
+  .hero-right img{width:100%;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,0.06)}
 
-  /* Featured products */
-  .products-header{
-    display:flex;justify-content:space-between;align-items:center;margin-top:40px;
-  }
-  .products-header h2{font-size:1.4rem;color:#05204A;}
-  .products-grid{
-    display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
-    gap:20px;margin-top:16px;
-  }
-  .card{
-    background:#fff;border-radius:var(--radius);
-    box-shadow:0 4px 10px rgba(0,0,0,0.04);
-    padding:16px;display:flex;flex-direction:column;
-    transition:transform .15s,box-shadow .15s;
-  }
-  .card:hover{transform:translateY(-4px);box-shadow:var(--shadow);}
-  .card .img-wrap{
-    background:#f9fafb;border-radius:12px;
-    height:180px;display:flex;align-items:center;justify-content:center;
-    overflow:hidden;margin-bottom:10px;
-  }
-  .card img{max-width:100%;max-height:100%;object-fit:contain;}
-  .card h3{font-size:1rem;margin-bottom:4px;}
-  .price{font-weight:700;color:#05204A;margin-bottom:6px;}
-  .card button{
-    padding:10px;border:none;border-radius:10px;font-weight:700;
-    cursor:pointer;transition:background .2s;
-  }
-  .add-btn{background:var(--accent);color:#fff;}
-  .add-btn:hover{background:var(--accent-dark);}
-  .wa-btn{background:#075e54;color:#fff;}
-  .wa-btn:hover{background:#064c43;}
-  .actions{display:flex;gap:8px;margin-top:auto;}
+  /* Products grid */
+  .products-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:20px}
+  .card{background:var(--card-bg);border-radius:12px;padding:14px;box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:stretch;transition:transform .18s ease, box-shadow .18s ease}
+  .card:hover{transform:translateY(-6px);box-shadow:0 18px 40px rgba(2,6,23,0.08)}
+  .card .img-wrap{height:180px;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#f8fafc,#ffffff)}
+  .card .img-wrap img{max-width:100%;max-height:100%;object-fit:contain}
+  .card h3{margin:12px 0 6px;font-size:1rem}
+  .price{font-weight:800;color:#05204A;margin-bottom:8px}
+  .card .actions{margin-top:auto;display:flex;gap:10px}
+  .card button{flex:1;padding:10px;border-radius:10px;border:0;cursor:pointer;font-weight:700}
+  .add-btn{background:var(--accent);color:#fff}
+  .wa-btn{background:#075e54;color:#fff}
 
-  /* Trust row */
-  .trust-row{
-    display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
-    gap:16px;margin-top:48px;text-align:center;
-  }
-  .trust-item{
-    background:#fff;padding:22px;border-radius:var(--radius);
-    box-shadow:0 4px 10px rgba(0,0,0,0.04);
-  }
-  .trust-item img{width:36px;height:36px;margin-bottom:8px;}
-  .trust-item h4{margin-bottom:4px;font-size:1rem;}
-  .trust-item p{color:var(--muted);font-size:0.9rem;}
+  /* Pagination */
+  .pagination{display:flex;justify-content:center;gap:8px;margin:22px 0}
+  .pagination button{padding:8px 12px;border-radius:8px;border:1px solid rgba(2,6,23,0.06);cursor:pointer;background:#fff}
+
+  /* Modals (cart, product, order) reuse your modal styles but refined */
+  .modal{display:none;position:fixed;inset:0;background:rgba(2,6,23,0.5);z-index:200;align-items:center;justify-content:center;padding:16px}
+  .modal.open{display:flex}
+  .modal-card{background:#fff;border-radius:12px;width:100%;max-width:720px;padding:18px;box-shadow:0 30px 60px rgba(2,6,23,0.12);max-height:92vh;overflow:auto}
+  .modal-card .close{position:absolute;top:12px;right:16px;cursor:pointer;font-size:20px}
+
+  /* Cart list */
+  .cart-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:12px}
+  .cart-item{display:flex;align-items:center;gap:12px;padding:8px;border-radius:10px;border:1px solid rgba(2,6,23,0.04)}
+  .cart-item img{width:72px;height:72px;object-fit:cover;border-radius:8px}
+  .cart-item .meta{flex:1}
+  .qty-controls{display:flex;align-items:center;gap:8px}
 
   /* Footer */
-  footer.site-footer{
-    margin-top:48px;background:#fff;text-align:center;padding:20px;border-radius:12px;
-    color:var(--muted);box-shadow:0 4px 10px rgba(0,0,0,0.04);
-  }
-  footer a{color:var(--accent);text-decoration:none;font-weight:600;}
+  footer.site-footer{margin-top:36px;background:#fff;padding:20px;border-radius:12px;box-shadow:var(--shadow);text-align:center;color:var(--muted)}
+  footer a{color:var(--accent);text-decoration:none;font-weight:700}
 
-  /* Responsive */
-  @media(max-width:768px){
-    .hero{flex-direction:column;text-align:center;}
-    .hero-right img{width:220px;}
+  /* Responsive adjustments */
+  @media (max-width:1000px){
+    .products-grid{grid-template-columns:repeat(3,1fr)}
+    .hero-right{display:none}
   }
+  @media (max-width:740px){
+    .hdr-inner{padding:10px}
+    .products-grid{grid-template-columns:repeat(2,1fr)}
+    .hero{flex-direction:column;align-items:flex-start}
+  }
+  @media (max-width:420px){
+    .products-grid{grid-template-columns:1fr}
+    nav.main-nav{display:none}
+    .logo{font-size:1.1rem}
+  }
+
+  /* tiny helpers to preserve your original classes used elsewhere */
+  .responsive-img{max-width:100%;height:auto;object-fit:contain}
 </style>
 </head>
 <body>
 
 <header class="site-header">
   <div class="hdr-inner">
-    <div class="logo">ONLINETRADERZ</div>
-    <nav class="main-nav">
-      <a href="#">Home</a>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="logo">ONLINETRADERZ</div>
+      <div style="color:var(--muted);font-size:0.95rem">Quality goods • Fast delivery</div>
+    </div>
+
+    <nav class="main-nav" aria-label="Main navigation">
+      <a href="/">Home</a>
       <a href="#shop">Shop</a>
       <a href="#contact">Contact</a>
       <a href="#about">About</a>
     </nav>
-    <button class="cart-btn" onclick="openCart()">Cart <span id="cartCount" class="cart-count">0</span></button>
+
+    <div class="controls">
+      <div class="theme-switch" title="Theme">
+        <button onclick="setTheme('light')">Light</button>
+        <button onclick="setTheme('dark')">Dark</button>
+        <button onclick="setTheme('blue')">Blue</button>
+      </div>
+      <button class="cart-btn" onclick="openCart()">
+        Cart <span id="cartCount" class="cart-count">0</span>
+      </button>
+    </div>
   </div>
 </header>
 
 <main class="wrap">
 
   <!-- Hero -->
-  <section class="hero">
+  <section class="hero" aria-label="Hero">
     <div class="hero-left">
-      <h1>Quality Products. Fast Delivery. Trusted Service.</h1>
-      <p>Shop from handpicked collections and enjoy fast, reliable delivery with convenient cash-on-delivery options.</p>
+      <h1>Welcome to ONLINETRADERZ</h1>
+      <p>Handpicked products, reliable delivery, and great prices. Browse the catalog and place your order — Cash on Delivery available.</p>
       <div class="hero-cta">
         <button class="btn-primary" onclick="scrollToProducts()">Shop Now</button>
-        <button class="btn-ghost" onclick="openCart()">View Categories</button>
+        <button class="btn-ghost" onclick="openCart()">View Cart</button>
       </div>
     </div>
     <div class="hero-right">
-      <img src="https://via.placeholder.com/300x200?text=Featured+Item" alt="Hero product">
+      <img src="https://via.placeholder.com/280x180?text=Featured+Product" alt="Featured product" />
     </div>
   </section>
 
-  <!-- Categories -->
-  <section class="categories">
-    <h2>Shop by Category</h2>
-    <div class="category-grid">
-      <div class="category">
-        <img src="https://cdn-icons-png.flaticon.com/512/1041/1041916.png" alt="Electronics">
-        <h3>Electronics</h3>
-      </div>
-      <div class="category">
-        <img src="https://cdn-icons-png.flaticon.com/512/1046/1046784.png" alt="Home Essentials">
-        <h3>Home Essentials</h3>
-      </div>
-      <div class="category">
-        <img src="https://cdn-icons-png.flaticon.com/512/892/892458.png" alt="Fashion">
-        <h3>Fashion</h3>
-      </div>
-      <div class="category">
-        <img src="https://cdn-icons-png.flaticon.com/512/3081/3081559.png" alt="Beauty">
-        <h3>Beauty & Care</h3>
-      </div>
-    </div>
-  </section>
-
-  <!-- Products -->
+  <!-- Products grid -->
   <section id="shop">
-    <div class="products-header">
-      <h2>Featured Products</h2>
-      <div style="color:var(--muted)">Showing <span id="productCount">0</span> items</div>
+    <div style="display:flex;justify-content:space-between;align-items:end;margin-top:18px">
+      <h2 style="margin:0">Featured Products</h2>
+      <div style="color:var(--muted)">Showing <span id="productCount">0</span> products</div>
     </div>
-    <div id="productsGrid" class="products-grid"></div>
+
+    <div id="productsGrid" class="products-grid" style="margin-top:12px">
+      <!-- product cards injected here -->
+    </div>
+
     <div class="pagination" id="pagination"></div>
   </section>
 
-  <!-- Trust Row -->
-  <section class="trust-row">
-    <div class="trust-item">
-      <img src="https://cdn-icons-png.flaticon.com/512/1046/1046784.png" alt="">
-      <h4>Fast & Reliable Delivery</h4>
-      <p>Quick doorstep shipping service.</p>
-    </div>
-    <div class="trust-item">
-      <img src="https://cdn-icons-png.flaticon.com/512/1046/1046871.png" alt="">
-      <h4>Cash on Delivery</h4>
-      <p>Pay after receiving your order.</p>
-    </div>
-    <div class="trust-item">
-      <img src="https://cdn-icons-png.flaticon.com/512/1046/1046866.png" alt="">
-      <h4>Secure Shopping</h4>
-      <p>Shop confidently with protection.</p>
-    </div>
-    <div class="trust-item">
-      <img src="https://cdn-icons-png.flaticon.com/512/1046/1046869.png" alt="">
-      <h4>Quality Guaranteed</h4>
-      <p>Only trusted, verified products.</p>
-    </div>
-  </section>
-
+  <!-- Footer / contact -->
   <footer id="contact" class="site-footer">
-    <div>Email: <a href="mailto:farisdaar107@gmail.com">farisdaar107@gmail.com</a> • WhatsApp: <a href="https://wa.me/923444318078" target="_blank">+92 344 4318078</a></div>
-    <div style="font-size:13px;margin-top:6px;">© ONLINETRADERZ — Built with care</div>
+    <div style="margin-bottom:8px">Email: <a href="mailto:farisdaar107@gmail.com">farisdaar107@gmail.com</a> • WhatsApp: <a href="https://wa.me/923444318078" target="_blank">+92 344 4318078</a></div>
+    <div style="font-size:13px;color:var(--muted)">© ONLINETRADERZ — Built with care</div>
   </footer>
-
 </main>
 
-<!-- (All modals + JS logic from your original code remain unchanged below) -->
-<script>
-  /* === keep all your original JS as-is === */
-  /* just paste your existing <script> block here unchanged */
-</script>
+<!-- Product Details Modal -->
+<div id="productDetails" class="modal" role="dialog" aria-hidden="true">
+  <div class="modal-card" style="position:relative;">
+    <button class="close" onclick="closeProductDetails()">&times;</button>
+    <div style="display:flex;gap:18px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:260px">
+        <div style="border-radius:10px;overflow:hidden;background:#f8fafc;padding:12px">
+          <img id="detailImg" class="responsive-img" src="https://via.placeholder.com/300" alt="Product image" />
+        </div>
+      </div>
+      <div style="flex:1.2;min-width:260px">
+        <h2 id="detailTitle"></h2>
+        <div id="detailPrice" style="font-weight:800;margin:8px 0;color:#05204A"></div>
+        <div id="detailDescription" style="color:var(--muted);margin-bottom:12px"></div>
 
+        <div style="display:flex;gap:8px">
+          <button class="btn-primary" id="detailAddBtn">Add to Cart</button>
+          <a id="detailWhatsApp" class="wa-btn" style="display:inline-flex;align-items:center;padding:10px 12px;border-radius:10px;color:#fff;text-decoration:none">WhatsApp</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Cart Modal -->
+<div id="cartModal" class="modal" role="dialog" aria-hidden="true">
+  <div class="modal-card" style="position:relative;">
+    <button class="close" onclick="closeCart()">&times;</button>
+    <h3>Your Cart</h3>
+    <ul id="cartItems" class="cart-list" style="margin-top:12px"></ul>
+
+    <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:12px;flex-wrap:wrap">
+      <div style="min-width:220px">
+        <div style="color:var(--muted)">Subtotal</div>
+        <div style="font-weight:800">RS.<span id="cartSubtotal">0</span></div>
+        <div style="color:var(--muted);margin-top:6px">Delivery: RS.<span id="cartDelivery">0</span></div>
+        <div style="margin-top:6px;font-size:18px;font-weight:900">Total: RS.<span id="cartTotal">0</span></div>
+      </div>
+
+      <div style="min-width:220px;display:flex;flex-direction:column;gap:8px">
+        <button class="btn-primary checkout-btn" onclick="checkout()">Checkout (COD)</button>
+        <button class="btn-ghost" onclick="clearCart()">Clear Cart</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Order Modal -->
+<div id="orderModal" class="modal" role="dialog" aria-hidden="true">
+  <div class="modal-card" style="position:relative;">
+    <button class="close" onclick="closeOrderForm()">&times;</button>
+    <h3>Order Submission</h3>
+    <form id="orderForm" style="margin-top:12px" onsubmit="submitOrder(event)">
+      <input id="orderName" required placeholder="Full Name" style="width:100%;padding:10px;border-radius:8px;border:1px solid #e6e9ef;margin-bottom:10px" />
+      <input id="orderContact" required placeholder="Contact Number" style="width:100%;padding:10px;border-radius:8px;border:1px solid #e6e9ef;margin-bottom:10px" />
+      <input id="orderEmail" placeholder="Email (optional)" type="email" style="width:100%;padding:10px;border-radius:8px;border:1px solid #e6e9ef;margin-bottom:10px" />
+      <textarea id="orderAddress" required placeholder="Full Address" style="width:100%;padding:10px;border-radius:8px;border:1px solid #e6e9ef;margin-bottom:10px"></textarea>
+      <button class="btn-primary" type="submit">Submit Order</button>
+    </form>
+  </div>
+</div>
+
+<script>
+/* -----------------------
+   Keep your API base
+   ----------------------- */
+const API_BASE = "https://cppbackened.onrender.com";
+
+/* Local state */
+let allProducts = [];
+let currentPage = 1;
+const productsPerPage = 12;
+let cart = [];
+
+/* UI helpers */
+function scrollToProducts(){ document.getElementById('shop').scrollIntoView({behavior:'smooth'}); }
+function setTheme(theme){ document.body.className = theme; }
+
+/* --- Product details modal --- */
+function viewDetails(id){
+  const p = allProducts.find(x=>x.id===id);
+  if(!p) return;
+  document.getElementById('detailImg').src = p.img || 'https://via.placeholder.com/300';
+  document.getElementById('detailTitle').textContent = p.title || '';
+  document.getElementById('detailPrice').textContent = `RS.${p.price ?? 0}`;
+  document.getElementById('detailDescription').textContent = p.description || 'No description available.';
+  document.getElementById('detailWhatsApp').href = `https://wa.me/923444318078?text=${encodeURIComponent("I'm interested in " + (p.title||''))}`;
+  document.getElementById('detailAddBtn').onclick = ()=>{ addToCart(p.id); closeProductDetails(); openCart(); };
+  document.getElementById('productDetails').classList.add('open');
+}
+
+function closeProductDetails(){ document.getElementById('productDetails').classList.remove('open'); }
+
+/* --- Load products from backend --- */
+async function loadProducts(){
+  try{
+    const res = await fetch(API_BASE + "/api/products");
+    if(!res.ok) throw new Error('Failed to fetch products: ' + res.status);
+    allProducts = await res.json();
+
+    // Normalize product objects:
+    allProducts = allProducts.map(p=>{
+  p = p || {};
+  const id = p.id || p._id || (p.title ? p.title.replace(/\s+/g,'-').toLowerCase() : String(Math.random()).slice(2,8));
+
+  let img = p.img || '';
+if (typeof img === 'string') {
+  img = img.trim();
+  if (img) {
+    if (img.startsWith('public/')) {
+      img = img.replace(/^public\//, ''); // remove "public/"
+    }
+    if (!img.startsWith('http')) {
+      if (!img.startsWith('/')) img = '/' + img;
+      img = API_BASE + img;  // final absolute URL
+    }
+  }
+} else {
+  img = '';
+}
+
+  return {...p, id, img};
+});
+
+    document.getElementById('productCount').textContent = allProducts.length;
+    renderProducts();
+    renderPagination();
+  }catch(err){
+    console.error(err);
+    document.getElementById('productsGrid').innerHTML = '<div style="padding:20px;color:#a02121">Failed to load products.</div>';
+  }
+}
+
+/* --- Render product cards --- */
+function renderProducts(){
+  const container = document.getElementById('productsGrid');
+  container.innerHTML = '';
+  const start = (currentPage - 1) * productsPerPage;
+  const pageProducts = allProducts.slice(start, start + productsPerPage);
+
+  pageProducts.forEach(p=>{
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="img-wrap">
+        <img src="${p.img || 'https://via.placeholder.com/300'}" alt="${escapeHtml(p.title || '')}">
+      </div>
+      <h3>${escapeHtml(p.title || '')}</h3>
+      <div class="price">RS.${Number(p.price || 0).toFixed(2)}</div>
+      <div style="color:var(--muted);font-size:14px;margin-bottom:8px">${escapeHtml(p.description || '')}</div>
+      <div class="actions">
+        <button class="add-btn" onclick="addToCart('${p.id}')">Add to Cart</button>
+        <button class="wa-btn" onclick="window.open('https://wa.me/923444318078?text='+encodeURIComponent('I am interested in ${encodeURIComponent(p.title || '')}'),'_blank')">WhatsApp</button>
+      </div>
+    `;
+    // clicking image opens details
+    card.querySelector('.img-wrap img').addEventListener('click', ()=>viewDetails(p.id));
+    container.appendChild(card);
+  });
+}
+
+/* --- Pagination --- */
+function renderPagination(){
+  const container = document.getElementById('pagination');
+  container.innerHTML = '';
+  const totalPages = Math.max(1, Math.ceil(allProducts.length / productsPerPage));
+  for(let i=1;i<=totalPages;i++){
+    const btn = document.createElement('button');
+    btn.textContent = i;
+    if(i===currentPage) btn.disabled = true;
+    btn.onclick = ()=>{ currentPage = i; renderProducts(); renderPagination(); window.scrollTo({top:200,behavior:'smooth'}); };
+    container.appendChild(btn);
+  }
+}
+
+/* --- Cart operations --- */
+function addToCart(id){
+  const product = allProducts.find(p=>p.id===id);
+  if(!product) return;
+  const existing = cart.find(i=>i.id===id);
+  if(existing){ existing.qty += 1; } else { cart.push({...product, qty:1}); }
+  updateCartUI();
+}
+
+function removeFromCart(id){
+  cart = cart.filter(i=>i.id!==id);
+  updateCartUI();
+}
+
+function changeQty(id, delta){
+  const item = cart.find(i=>i.id===id);
+  if(!item) return;
+  item.qty += delta;
+  if(item.qty <= 0) removeFromCart(id);
+  updateCartUI();
+}
+
+function clearCart(){
+  if(!confirm('Clear cart?')) return;
+  cart = [];
+  updateCartUI();
+}
+
+function updateCartUI(){
+  document.getElementById('cartCount').textContent = cart.reduce((s,i)=>s+i.qty,0);
+  const list = document.getElementById('cartItems');
+  list.innerHTML = '';
+  let subtotal = 0;
+  cart.forEach(i=>{
+    subtotal += (Number(i.price || 0) * i.qty);
+    const li = document.createElement('li');
+    li.className = 'cart-item';
+    li.innerHTML = `
+      <img src="${i.img || 'https://via.placeholder.com/120'}" alt="${escapeHtml(i.title || '')}">
+      <div class="meta">
+        <div style="font-weight:700">${escapeHtml(i.title || '')}</div>
+        <div style="color:var(--muted);font-size:13px">RS.${(Number(i.price||0)*i.qty).toFixed(2)}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+        <div class="qty-controls">
+          <button onclick="changeQty('${i.id}', -1)">-</button>
+          <div style="min-width:24px;text-align:center">${i.qty}</div>
+          <button onclick="changeQty('${i.id}', 1)">+</button>
+        </div>
+        <button style="background:transparent;border:0;color:#b91c1c;cursor:pointer" onclick="removeFromCart('${i.id}')">Remove</button>
+      </div>
+    `;
+    list.appendChild(li);
+  });
+
+  const deliveryCharges = getDeliveryCharges(subtotal);
+  const total = subtotal + deliveryCharges;
+
+  document.getElementById('cartSubtotal').textContent = subtotal.toFixed(2);
+  document.getElementById('cartDelivery').textContent = deliveryCharges === 0 ? 'Free' : deliveryCharges.toFixed(2);
+  document.getElementById('cartTotal').textContent = total.toFixed(2);
+}
+
+/* open/close modals */
+function openCart(){ updateCartUI(); document.getElementById('cartModal').classList.add('open'); }
+function closeCart(){ document.getElementById('cartModal').classList.remove('open'); }
+function checkout(){ if(cart.length===0) return alert('Cart is empty.'); closeCart(); document.getElementById('orderModal').classList.add('open'); }
+function closeOrderForm(){ document.getElementById('orderModal').classList.remove('open'); }
+
+/* Delivery charges logic (same as backend) */
+function getDeliveryCharges(subtotal){
+  if(subtotal > 0 && subtotal < 3000) return 180;
+  if(subtotal >= 3000 && subtotal < 5000) return 550;
+  if(subtotal >= 5000) return 0;
+  return 0;
+}
+
+/* Order submission */
+function submitOrder(event){
+  event.preventDefault();
+  const name = document.getElementById('orderName').value.trim();
+  const contact = document.getElementById('orderContact').value.trim();
+  const email = document.getElementById('orderEmail').value.trim();
+  const address = document.getElementById('orderAddress').value.trim();
+  if(!name || !contact || !address) return alert('All fields required!');
+
+  const productsData = cart.map(p=>({ product: p.id, qty: p.qty }));
+
+  fetch(API_BASE + "/api/orders", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ products: productsData, name, contact, email, address })
+  })
+  .then(res=>res.text())
+  .then(data=>{
+    if(data && data.toLowerCase().includes('order placed')){
+      alert(`Thank you ${name}! Your order has been placed successfully.`);
+      const message = `Hello ${name}, your order for ${cart.map(p=>p.title+' x'+p.qty).join(', ')} has been received.`;
+      window.open(`https://wa.me/${contact}?text=${encodeURIComponent(message)}`, '_blank');
+
+      cart = [];
+      updateCartUI();
+      closeOrderForm();
+    } else {
+      alert('Failed to place order.');
+    }
+  })
+  .catch(err=>{
+    console.error(err);
+    alert('Error connecting to server.');
+  });
+}
+
+/* Utility: safe text escaping */
+function escapeHtml(s=''){ return String(s).replace(/[&<>"']/g, function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]; }); }
+
+/* Initialize on load */
+window.addEventListener('load', ()=>{
+  loadProducts();
+});
+
+/* small accessibility: close modals on escape */
+window.addEventListener('keydown', (e)=>{
+  if(e.key === 'Escape'){
+    document.querySelectorAll('.modal.open').forEach(m=>m.classList.remove('open'));
+  }
+});
+</script>
 </body>
 </html>
