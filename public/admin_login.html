@@ -9,9 +9,11 @@
       color: red;
       font-family: Arial, sans-serif;
       display: flex;
+      flex-direction: column;
       justify-content: center;
       align-items: center;
       height: 100vh;
+      margin: 0;
     }
     .login-box {
       background: #1a1a1a;
@@ -39,6 +41,20 @@
     button:hover {
       background: darkred;
     }
+    footer {
+      text-align: center;
+      color: #aaa;
+      margin-top: 20px;
+      font-size: 14px;
+    }
+    footer a {
+      color: red;
+      text-decoration: none;
+      margin: 0 5px;
+    }
+    footer a:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
@@ -51,8 +67,15 @@
     </form>
   </div>
 
+  <footer>
+    <p>
+      Contact us:
+      <a href="https://wa.me/923444318078" target="_blank">WhatsApp</a> |
+      <a href="mailto:onlinetraderz@gmail.com">Email</a>
+    </p>
+  </footer>
+
   <script>
-    // 🔗 Replace this with your actual Render backend link
     const API_BASE = "https://cppbackened.onrender.com";
 
     const form = document.getElementById("loginForm");
@@ -70,7 +93,6 @@
         });
 
         if (res.ok) {
-          // ✅ Mark admin as logged in (sessionStorage clears on browser close)
           sessionStorage.setItem("adminLoggedIn", "true");
           window.location.href = "admin.html";
         } else {
@@ -82,7 +104,6 @@
       }
     });
 
-    // ✅ If already logged in in this session, skip login page
     if (sessionStorage.getItem("adminLoggedIn") === "true") {
       window.location.href = "admin.html";
     }
