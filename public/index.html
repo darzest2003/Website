@@ -209,14 +209,20 @@
     const modal = document.createElement("div");
     modal.className = "checkout-modal";
     modal.innerHTML = `
-      <div class="checkout-form">
-        <h3>Complete Your Order</h3>
-        <input type="text" id="custName" placeholder="Full Name" required>
-        <input type="email" id="custEmail" placeholder="Email" required>
-        <input type="text" id="custContact" placeholder="WhatsApp / Contact" required>
-        <textarea id="custAddress" placeholder="Address" required></textarea>
-        <button id="submitOrder">Submit Order</button>
-      </div>
+  <div class="checkout-form">
+    <button class="close-checkout">✖</button>
+    <h3>Complete Your Order</h3>
+    <input type="text" id="custName" placeholder="Full Name" required>
+    <input type="email" id="custEmail" placeholder="Email" required>
+    <input type="text" id="custContact" placeholder="WhatsApp / Contact" required>
+    <textarea id="custAddress" placeholder="Address" required></textarea>
+    <button id="submitOrder">Submit Order</button>
+  </div>
+`;
+
+document.querySelector(".close-checkout").addEventListener("click", () => {
+  modal.remove();
+});
     `;
     document.body.appendChild(modal);
 
