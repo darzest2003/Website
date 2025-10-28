@@ -423,3 +423,24 @@ body {
   transform: scale(1.1);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
      }
+/* ============ FOOTER EMAIL LINK ============ */
+.footer-email {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent-plain);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 15px;
+  transition: opacity 0.25s ease;
+}
+
+.footer-email img {
+  width: 18px;
+  height: 18px;
+  filter: brightness(1.1);
+}
+
+.footer-email:hover {
+  opacity: 0.75;
+}
