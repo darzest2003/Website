@@ -91,5 +91,47 @@
   <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" />
   
 </a>
+
+  <script>
+const API_BASE = "https://cppbackened.onrender.com";
+
+async function loadProducts() {
+  try {
+    const res = await fetch(`${API_BASE}/api/products`);
+    const products = await res.json();
+    displayProducts(products);
+  } catch (err) {
+    console.error("Error loading products:", err);
+  }
+}
+
+function displayProducts(products) {
+  const grid = document.createElement("div");
+  grid.className = "grid";
+  
+  products.forEach(p => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <img src="${p.img}" alt="${p.title}">
+      <h3>${p.title}</h3>
+      <div class="meta">
+        <div class="price">Rs.${p.price}</div>
+        <div class="stock">${p.stock > 0 ? 'In Stock' : 'Out of Stock'}</div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary">Add to Cart</button>
+        <button class="btn btn-outline">View</button>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+  
+  document.querySelector(".page").appendChild(grid);
+}
+
+loadProducts();
+  </script>
+  
 </body>   
 </html>
