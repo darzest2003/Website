@@ -5,15 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />  
   <title>ONLINETRADERZ — Shop</title>  
   <meta name="description" content="ONLINETRADERZ — modern storefront" />    
-
-  <!-- ✅ Remove the <style> block completely -->
-  <!-- ✅ Link to your external CSS file instead -->
   <link rel="stylesheet" href="style.css">
 </head>  
 
 <body class="theme-grey">  
   
-  <!-- ✅ Replace this with your actual HTML structure -->
   <header class="site-header">
     <nav class="nav">
       <div class="brand">
@@ -38,27 +34,19 @@
       <h1>Welcome to ONLINETRADERZ</h1>
       <p>Shop with elegance.</p>
     </section>
-    
 
-    <!-- ============ LOCK SCREEN / CENTER BANNER ============ -->
-<section class="lock-banner">
-  <div class="lock-content">
-    <img src="https://cdn-icons-png.flaticon.com/512/3062/3062634.png" alt="Secure Shopping" class="lock-icon">
-    <h2>Cash on Delivery Available</h2>
-    <p>Shop securely with confidence — your orders are safe and delivered right to your doorstep.</p>
-
-
-    <!-- 🖼️ Banner Section -->
-  <div class="banner-images">
-    <img src="images/Banner1.jpg" alt="Cash on Delivery Banner">
-    <img src="images/Banner2.jpg" alt="Truck Delivery Banner">
-    <img src="images/Banner3.jpg" alt="Boy Receiving Parcel">
-  </div>
-  </div>
-</section>
-    
-    
-    
+    <section class="lock-banner">
+      <div class="lock-content">
+        <img src="https://cdn-icons-png.flaticon.com/512/3062/3062634.png" alt="Secure Shopping" class="lock-icon">
+        <h2>Cash on Delivery Available</h2>
+        <p>Shop securely with confidence — your orders are safe and delivered right to your doorstep.</p>
+        <div class="banner-images">
+          <img src="images/Banner1.jpg" alt="Cash on Delivery Banner">
+          <img src="images/Banner2.jpg" alt="Truck Delivery Banner">
+          <img src="images/Banner3.jpg" alt="Boy Receiving Parcel">
+        </div>
+      </div>
+    </section>
 
     <div class="tools">
       <div class="search">
@@ -67,86 +55,152 @@
       <div class="filter">Filter</div>
     </div>
 
-    
-        </div>
-        <div class="actions">
-          <button class="btn btn-primary">Add to Cart</button>
-          <button class="btn btn-outline">View</button>
-        </div>
-      </div>
-    </div>
   </main>
 
   <footer class="footer">
-  &copy; 2025 ONLINETRADERZ. All Rights Reserved.
-  <br><br>
-  <a href="mailto:farisdaar107@gmail.com" class="footer-email" target="_blank">
-    <img src="https://cdn-icons-png.flaticon.com/512/561/561127.png" alt="Email Icon">
-    farisdaar107@gmail.com
-  </a>
+    &copy; 2025 ONLINETRADERZ. All Rights Reserved.
+    <br><br>
+    <a href="mailto:farisdaar107@gmail.com" class="footer-email" target="_blank">
+      <img src="https://cdn-icons-png.flaticon.com/512/561/561127.png" alt="Email Icon">
+      farisdaar107@gmail.com
+    </a>
   </footer>
+
   <!-- Floating WhatsApp Button -->
-<a href="https://wa.me/923444318078" class="whatsapp-float" target="_blank" aria-label="Chat on WhatsApp">
-  
-  <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" />
-  
-</a>
+  <a href="https://wa.me/923444318078" class="whatsapp-float" target="_blank" aria-label="Chat on WhatsApp">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" />
+  </a>
 
+  <!-- Product Loader Script -->
   <script>
-const API_BASE = "https://cppbackened.onrender.com";
+  const API_BASE = "https://cppbackened.onrender.com";
 
-async function loadProducts() {
-  try {
-    const res = await fetch(`${API_BASE}/api/products`);
-    const products = await res.json();
-    displayProducts(products);
-  } catch (err) {
-    console.error("Error loading products:", err);
+  async function loadProducts() {
+    try {
+      const res = await fetch(`${API_BASE}/api/products`);
+      const products = await res.json();
+      displayProducts(products);
+    } catch (err) {
+      console.error("Error loading products:", err);
+    }
   }
-}
 
-    
+  function displayProducts(products) {
+    const grid = document.createElement("div");
+    grid.className = "grid";
   
-function displayProducts(products) {
-  const grid = document.createElement("div");
-  grid.className = "grid";
-  
-  products.forEach(p => {
-    const card = document.createElement("div");
-    card.className = "card";
-    card.innerHTML = `
-      <img src="${p.img}" alt="${p.title}">
-      <h3>${p.title}</h3>
-      <div class="meta">
-        <div class="price">Rs.${p.price}</div>
-        <div class="stock">${p.stock > 0 ? 'In Stock' : 'Out of Stock'}</div>
-      </div>
-      <div class="actions">
-        <button class="btn btn-primary">Add to Cart</button>
-        <button class="btn btn-outline">View</button>
-      </div>
-    `;
-    grid.appendChild(card);
-  });
-  
-  document.querySelector(".page").appendChild(grid);
-}
+    products.forEach(p => {
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = `
+        <img src="${p.img}" alt="${p.title}">
+        <h3>${p.title}</h3>
+        <div class="meta">
+          <div class="price">Rs.${p.price}</div>
+          <div class="stock">${p.stock > 0 ? 'In Stock' : 'Out of Stock'}</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary add-cart-btn">Add to Cart</button>
+          <button class="btn btn-outline">View</button>
+        </div>
+      `;
+      grid.appendChild(card);
 
-loadProducts();
+      // Attach event to Add to Cart button
+      card.querySelector(".add-cart-btn").addEventListener("click", () => {
+        addToCart(p);
+      });
+    });
+  
+    document.querySelector(".page").appendChild(grid);
+  }
+
+  loadProducts();
   </script>
 
   <!-- 🛒 Cart Sidebar -->
-<div class="cart-sidebar" id="cartSidebar">
-  <div class="cart-header">
-    <h3>Your Cart</h3>
-    <button id="closeCart">✖</button>
+  <div class="cart-sidebar" id="cartSidebar">
+    <div class="cart-header">
+      <h3>Your Cart</h3>
+      <button id="closeCart">✖</button>
+    </div>
+    <div id="cartItems"></div>
+    <div class="cart-footer">
+      <p>Total: Rs.<span id="cartTotal">0</span></p>
+      <button class="checkout-btn">Checkout</button>
+    </div>
   </div>
-  <div id="cartItems"></div>
-  <div class="cart-footer">
-    <p>Total: Rs.<span id="cartTotal">0</span></p>
-    <button class="checkout-btn">Checkout</button>
-  </div>
-</div>
-  
+
+  <!-- 🛒 Cart Management Script -->
+  <script>
+  let cart = JSON.parse(localStorage.getItem("cart")) || [];
+
+  function updateCartCount() {
+    document.querySelector(".cart-count").textContent = cart.length;
+  }
+
+  function saveCart() {
+    localStorage.setItem("cart", JSON.stringify(cart));
+    updateCartCount();
+    renderCartItems();
+  }
+
+  function addToCart(product) {
+    const existing = cart.find(item => item.id === product.id);
+    if (existing) {
+      existing.quantity += 1;
+    } else {
+      product.quantity = 1;
+      cart.push(product);
+    }
+    saveCart();
+    alert(`${product.title} added to cart!`);
+  }
+
+  function renderCartItems() {
+    const cartContainer = document.getElementById("cartItems");
+    const total = document.getElementById("cartTotal");
+    cartContainer.innerHTML = "";
+    let sum = 0;
+    
+    cart.forEach((item, i) => {
+      const div = document.createElement("div");
+      div.className = "cart-item";
+      div.innerHTML = `
+        <img src="${item.img}" alt="${item.title}">
+        <div class="cart-item-details">
+          <h4>${item.title}</h4>
+          <p>Rs.${item.price} × ${item.quantity}</p>
+        </div>
+        <button class="remove-btn" onclick="removeFromCart(${i})">🗑️</button>
+      `;
+      cartContainer.appendChild(div);
+      sum += item.price * item.quantity;
+    });
+
+    total.textContent = sum;
+  }
+
+  function removeFromCart(index) {
+    cart.splice(index, 1);
+    saveCart();
+  }
+
+  document.querySelector(".cart-btn").addEventListener("click", () => {
+    document.getElementById("cartSidebar").classList.add("active");
+  });
+
+  document.getElementById("closeCart").addEventListener("click", () => {
+    document.getElementById("cartSidebar").classList.remove("active");
+  });
+
+  document.querySelector(".checkout-btn").addEventListener("click", () => {
+    alert("Checkout feature coming soon!");
+  });
+
+  updateCartCount();
+  renderCartItems();
+  </script>
+
 </body>   
 </html>
