@@ -805,13 +805,3 @@ body {
   }
 }
 
-
-
-.close-checkout:hover {
-  background: #e60000;
-  transform: scale(1.1);
-}
-
-.close-checkout:active {
-  transform: scale(0.95);
-}
