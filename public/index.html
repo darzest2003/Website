@@ -204,29 +204,31 @@
     document.getElementById("cartSidebar").classList.remove("active");
   });
 
-  // 🧾 Checkout Form Modal
+  // 🧾 Checkout Form Modal (Corrected Integration)
   document.querySelector(".checkout-btn").addEventListener("click", () => {
     const modal = document.createElement("div");
     modal.className = "checkout-modal";
     modal.innerHTML = `
-  <div class="checkout-form">
-    <button class="close-checkout">✖</button>
-    <h3>Complete Your Order</h3>
-    <input type="text" id="custName" placeholder="Full Name" required>
-    <input type="email" id="custEmail" placeholder="Email" required>
-    <input type="text" id="custContact" placeholder="WhatsApp / Contact" required>
-    <textarea id="custAddress" placeholder="Address" required></textarea>
-    <button id="submitOrder">Submit Order</button>
-  </div>
-`;
-
-document.querySelector(".close-checkout").addEventListener("click", () => {
-  modal.remove();
-});
+      <div class="checkout-form">
+        <button class="close-checkout">✖</button>
+        <h3>Complete Your Order</h3>
+        <input type="text" id="custName" placeholder="Full Name" required>
+        <input type="email" id="custEmail" placeholder="Email" required>
+        <input type="text" id="custContact" placeholder="WhatsApp / Contact" required>
+        <textarea id="custAddress" placeholder="Address" required></textarea>
+        <button id="submitOrder">Submit Order</button>
+      </div>
     `;
+
     document.body.appendChild(modal);
 
-    document.getElementById("submitOrder").addEventListener("click", () => {
+    // close button
+    modal.querySelector(".close-checkout").addEventListener("click", () => {
+      modal.remove();
+    });
+
+    // submit button
+    modal.querySelector("#submitOrder").addEventListener("click", () => {
       const name = document.getElementById("custName").value.trim();
       const email = document.getElementById("custEmail").value.trim();
       const contact = document.getElementById("custContact").value.trim();
