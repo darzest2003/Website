@@ -1,32 +1,33 @@
-/* === Admin Dashboard Style (Enhanced Pro Version) === */
+/* === Admin Dashboard Style (Apple Store Inspired Light Blue Theme) === */
 :root {
-  --bg: #f4f4f9;
-  --card: #fff;
-  --text: #222;
-  --accent: #007bff;
-  --sidebar: #343a40;
-  --sidebar-text: #eee;
-  --shadow: rgba(0, 0, 0, 0.15);
+  --bg: linear-gradient(135deg, #e9f2ff 0%, #f5f9ff 100%);
+  --card: #ffffff;
+  --text: #1a1a1a;
+  --accent: #007aff; /* Apple-style blue */
+  --sidebar: #f0f4ff;
+  --sidebar-text: #222;
+  --shadow: rgba(0, 0, 0, 0.08);
 }
 
 body.dark {
-  --bg: #121212;
-  --card: #1e1e1e;
-  --text: #f1f1f1;
-  --accent: #4dabf7;
-  --sidebar: #1c1c1c;
+  --bg: #101010;
+  --card: #1c1c1e;
+  --text: #f5f5f7;
+  --accent: #0a84ff;
+  --sidebar: #1c1c1e;
   --sidebar-text: #ccc;
   --shadow: rgba(255, 255, 255, 0.05);
 }
 
 body {
   margin: 0;
-  font-family: "Segoe UI", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: var(--bg);
   color: var(--text);
   display: flex;
   min-height: 100vh;
   overflow-x: hidden;
+  transition: background 0.4s ease, color 0.4s ease;
 }
 
 /* Sidebar */
@@ -43,7 +44,8 @@ body {
   padding: 15px;
   transition: left 0.3s ease;
   z-index: 1000;
-  box-shadow: 3px 0 8px var(--shadow);
+  box-shadow: 2px 0 10px var(--shadow);
+  border-right: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .sidebar.open {
@@ -55,27 +57,27 @@ body {
   justify-content: space-between;
   align-items: center;
   padding-bottom: 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
   margin-bottom: 15px;
 }
 
 .logo {
   font-size: 1.2em;
-  font-weight: bold;
-  color: var(--sidebar-text);
+  font-weight: 600;
+  color: var(--accent);
 }
 
 .close-sidebar {
   background: none;
   border: none;
-  color: var(--sidebar-text);
+  color: #333;
   font-size: 22px;
   cursor: pointer;
   line-height: 1;
+  transition: color 0.2s;
 }
-
 .close-sidebar:hover {
-  color: #ff4b4b;
+  color: #ff3b30;
 }
 
 .nav-btn {
@@ -86,33 +88,34 @@ body {
   padding: 10px;
   font-size: 1em;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 10px;
   transition: background 0.3s, transform 0.2s;
 }
 .nav-btn:hover,
 .nav-btn.active {
   background: var(--accent);
   color: #fff;
-  transform: scale(1.02);
+  transform: scale(1.03);
 }
 
 .theme-toggle {
   margin-top: 15px;
   font-size: 0.9em;
 }
+
 .logout {
   margin-top: auto;
-  background: #dc3545;
+  background: #ff3b30;
   border: none;
   padding: 10px;
   color: white;
-  border-radius: 6px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: 0.3s;
+  transition: background 0.3s ease, transform 0.2s;
 }
 .logout:hover {
-  opacity: 0.9;
-  background: #c82333;
+  background: #e02e23;
+  transform: scale(1.03);
 }
 
 /* Menu toggle button (☰) */
@@ -125,11 +128,11 @@ body {
   border: none;
   padding: 10px 12px;
   font-size: 22px;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
   z-index: 1100;
   display: none;
-  box-shadow: 0 2px 5px var(--shadow);
+  box-shadow: 0 3px 6px var(--shadow);
 }
 .menu-toggle:hover {
   opacity: 0.9;
@@ -143,7 +146,7 @@ body {
   left: 240px;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.25);
   z-index: -1;
 }
 
@@ -179,7 +182,9 @@ main {
 
 h1 {
   margin-bottom: 20px;
-  font-size: 1.5em;
+  font-size: 1.6em;
+  font-weight: 600;
+  color: var(--text);
 }
 
 /* Cards */
@@ -190,19 +195,22 @@ h1 {
 }
 .card {
   background: var(--card);
-  border-radius: 10px;
-  padding: 20px;
+  border-radius: 16px;
+  padding: 25px;
   flex: 1;
   min-width: 220px;
-  box-shadow: 0 2px 6px var(--shadow);
+  box-shadow: 0 2px 8px var(--shadow);
   text-align: center;
-  transition: transform 0.2s;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 .card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-5px);
+  box-shadow: 0 4px 14px var(--shadow);
 }
 .card h2 {
   margin: 0;
+  font-size: 1.8em;
+  color: var(--accent);
 }
 
 /* Forms and Lists */
@@ -215,9 +223,16 @@ h1 {
 }
 .add-form input,
 .add-form button {
-  padding: 8px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #cdd9ff;
+  background: #f9fbff;
+  transition: border 0.3s, background 0.3s;
+}
+.add-form input:focus {
+  border-color: var(--accent);
+  outline: none;
+  background: #fff;
 }
 .add-form button {
   background: var(--accent);
@@ -230,11 +245,12 @@ h1 {
 }
 
 .search {
-  padding: 8px;
+  padding: 10px;
   width: 100%;
   margin-bottom: 10px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
+  border-radius: 10px;
+  border: 1px solid #cdd9ff;
+  background: #f9fbff;
 }
 
 /* List items */
@@ -245,18 +261,22 @@ h1 {
 }
 .item {
   background: var(--card);
-  border-radius: 8px;
-  padding: 10px;
+  border-radius: 12px;
+  padding: 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   box-shadow: 0 2px 5px var(--shadow);
   flex-wrap: wrap;
+  transition: transform 0.2s;
+}
+.item:hover {
+  transform: translateY(-2px);
 }
 .item img {
   width: 60px;
   height: 60px;
-  border-radius: 5px;
+  border-radius: 8px;
   object-fit: cover;
 }
 .details {
@@ -267,8 +287,8 @@ h1 {
   width: 100%;
   margin: 3px 0;
   padding: 5px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  border: 1px solid #cdd9ff;
+  border-radius: 8px;
   background: transparent;
   color: var(--text);
 }
@@ -276,7 +296,7 @@ h1 {
   background: var(--accent);
   color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: 8px;
   padding: 6px 10px;
   margin-left: 5px;
   cursor: pointer;
@@ -289,8 +309,8 @@ h1 {
 /* Chart container */
 .chart-container {
   background: var(--card);
-  padding: 15px;
-  border-radius: 10px;
+  padding: 20px;
+  border-radius: 14px;
   box-shadow: 0 2px 6px var(--shadow);
 }
 
@@ -313,4 +333,4 @@ h1 {
   .sidebar.open::after {
     left: 220px;
   }
-}
+  }
