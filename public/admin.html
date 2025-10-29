@@ -104,6 +104,12 @@
       sidebar.classList.toggle("open");
     });
 
+    // Close sidebar with cross
+const closeSidebarBtn = document.getElementById("closeSidebar");
+closeSidebarBtn.addEventListener("click", () => {
+  sidebar.classList.remove("open");
+});
+
     // --- Navigation ---
     document.querySelectorAll(".nav-btn").forEach(btn => {
       btn.addEventListener("click", () => {
