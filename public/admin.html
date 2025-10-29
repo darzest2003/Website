@@ -15,6 +15,9 @@
     }
   </script>
 
+  <!-- Mobile toggle button -->
+  <button class="menu-toggle" id="menuToggle">☰</button>
+
   <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
     <div class="logo">OnlineTraderz Admin</div>
@@ -43,7 +46,9 @@
         <div class="card"><h2 id="totalOrders">0</h2><p>Total Orders</p></div>
         <div class="card"><h2 id="totalRevenue">RS.0</h2><p>Total Revenue</p></div>
       </div>
-      <canvas id="salesChart"></canvas>
+      <div class="chart-container">
+        <canvas id="salesChart"></canvas>
+      </div>
     </section>
 
     <!-- Products -->
@@ -74,7 +79,7 @@
     <section id="settings" class="section">
       <h1>⚙️ Settings</h1>
       <p>Admin panel for OnlineTraderz. Data syncs automatically with your backend.</p>
-      <p>Version: <b>2.0 Pro</b></p>
+      <p>Version: <b>2.1 Pro</b></p>
     </section>
   </main>
 
@@ -89,7 +94,14 @@
   <script>
     const API_BASE = "https://cppbackened.onrender.com";
 
-    // --- Sidebar Navigation ---
+    // --- Sidebar Toggle for Mobile ---
+    const sidebar = document.getElementById("sidebar");
+    const menuToggle = document.getElementById("menuToggle");
+    menuToggle.addEventListener("click", () => {
+      sidebar.classList.toggle("open");
+    });
+
+    // --- Navigation ---
     document.querySelectorAll(".nav-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
@@ -97,6 +109,7 @@
         const target = btn.getAttribute("data-section");
         document.querySelectorAll(".section").forEach(sec => sec.classList.remove("visible"));
         document.getElementById(target).classList.add("visible");
+        sidebar.classList.remove("open"); // close sidebar on mobile after navigation
       });
     });
 
@@ -143,8 +156,8 @@
               <input type="number" value="${p.stock}" class="edit-stock" />
             </div>
             <div class="actions">
-              <button class="save-btn">💾 Save</button>
-              <button class="delete-btn">🗑️ Delete</button>
+              <button class="save-btn">💾</button>
+              <button class="delete-btn">🗑️</button>
             </div>`;
           // Save
           div.querySelector(".save-btn").onclick = async () => {
@@ -227,7 +240,7 @@
               <p>RS.${o.totalAmount} | ${o.payment}</p>
             </div>
             <div class="actions">
-              <button onclick="downloadLabel(${i})">📄 Label</button>
+              <button onclick="downloadLabel(${i})">📄</button>
             </div>`;
           container.appendChild(div);
         });
