@@ -67,7 +67,24 @@ body {
   margin-top: 20px;
   font-size: 0.9em;
 }
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+}
 
+.close-sidebar {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.close-sidebar:hover {
+  color: #ff4b4b;
+}
 /* Main content */
 main {
   flex: 1;
