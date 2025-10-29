@@ -824,3 +824,94 @@ body {
   color: #e60000 !important;
   transform: scale(1.2);
 }
+/* =============================== */
+/* ☰ Sidebar Menu Styles           */
+/* =============================== */
+
+.menu-toggle {
+  position: fixed;
+  top: 18px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.25);
+  color: white;
+  border: none;
+  font-size: 26px;
+  border-radius: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
+  z-index: 1100;
+  transition: background 0.3s ease, transform 0.3s ease;
+}
+
+.menu-toggle:hover {
+  background: rgba(255, 255, 255, 0.4);
+  transform: scale(1.05);
+}
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: -280px;
+  width: 260px;
+  height: 100vh;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+  box-shadow: 4px 0 20px rgba(0, 0, 60, 0.1);
+  transition: left 0.35s ease;
+  z-index: 1500;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar.active {
+  left: 0;
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 20px;
+  background: linear-gradient(135deg, #007aff, #60a5ff);
+  color: white;
+}
+
+.sidebar-header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.close-sidebar {
+  background: transparent;
+  color: white;
+  font-size: 20px;
+  border: none;
+  cursor: pointer;
+}
+
+.category-list {
+  list-style: none;
+  margin: 0;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.category-list li {
+  font-weight: 600;
+  color: #0a1b3f;
+  cursor: pointer;
+  padding: 10px 14px;
+  border-radius: 10px;
+  transition: background 0.25s ease;
+}
+
+.category-list li:hover {
+  background: #e6f0ff;
+}
+
+/* Add category attribute to each product card */
+.card[data-category] {
+  display: block;
+}
