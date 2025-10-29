@@ -22,7 +22,12 @@
       window.location.href = "admin_login.html";
     }
   </script>
-
+<script>
+  // Auto logout on page refresh
+  window.addEventListener('load', () => {
+    sessionStorage.removeItem("adminLoggedIn");
+  });
+</script>
   <!-- Mobile toggle button -->
   <button class="menu-toggle" id="menuToggle">☰</button>
 
