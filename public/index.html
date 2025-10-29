@@ -158,6 +158,77 @@
   loadProducts();
   </script>
 
+  <script>
+function setupQuickView(products) {
+  document.querySelectorAll('.btn-outline').forEach((btn, index) => {
+    btn.addEventListener('click', () => {
+      const p = products[index];
+
+      // Create modal
+      const modal = document.createElement('div');
+      modal.className = 'quickview-modal';
+      modal.innerHTML = `
+        <div class="quickview-card">
+          <button class="close-view">✖</button>
+          <img src="${p.img}" alt="${p.title}">
+          <h2>${p.title}</h2>
+          <p class="price">Rs.${p.price}</p>
+          <p class="stock">${p.stock > 0 ? '✅ In Stock' : '❌ Out of Stock'}</p>
+          <p class="desc">${p.desc || 'No description available.'}</p>
+          <div class="actions">
+            <button class="btn btn-primary">Add to Cart</button>
+            <button class="btn btn-outline">Close</button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(modal);
+
+      // Close modal
+      modal.querySelector('.close-view').addEventListener('click', () => modal.remove());
+      modal.querySelector('.btn-outline').addEventListener('click', () => modal.remove());
+
+      // Add to cart button
+      modal.querySelector('.btn-primary').addEventListener('click', () => {
+        addToCart(p);
+        modal.remove();
+      });
+    });
+  });
+}
+
+// Modify your displayProducts() to call setupQuickView
+function displayProducts(products) {
+  const grid = document.createElement("div");
+  grid.className = "grid";
+
+  products.forEach(p => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <img src="${p.img}" alt="${p.title}">
+      <h3>${p.title}</h3>
+      <div class="meta">
+        <div class="price">Rs.${p.price}</div>
+        <div class="stock">${p.stock > 0 ? 'In Stock' : 'Out of Stock'}</div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary add-cart-btn">Add to Cart</button>
+        <button class="btn btn-outline">View</button>
+      </div>
+    `;
+    grid.appendChild(card);
+
+    card.querySelector(".add-cart-btn").addEventListener("click", () => {
+      addToCart(p);
+    });
+  });
+
+  document.querySelector(".page").appendChild(grid);
+  setupQuickView(products);
+}
+  </script>
+
   <!-- 🛒 Cart Sidebar -->
   <div class="cart-sidebar" id="cartSidebar">
     <div class="cart-header">
