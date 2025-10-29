@@ -29,7 +29,28 @@
 </head>  
 
 <body class="theme-grey">  
-  
+
+  <!-- Sidebar Toggle Button (Top Left) -->
+<button class="menu-toggle" id="menuToggle">
+  ☰
+</button>
+
+<!-- Sidebar Menu -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <h3>Categories</h3>
+    <button class="close-sidebar" id="closeSidebar">✕</button>
+  </div>
+  <ul class="category-list">
+    <li data-category="car-accessories">Car Accessories</li>
+    <li data-category="lights">Lights</li>
+    <li data-category="car-cleaner">Car Cleaner</li>
+    <li data-category="shirts">Shirts</li>
+    <li data-category="winter-collections">Winter Collections</li>
+    <li data-category="jewelry-items">Jewelry Items</li>
+    <li data-category="body-mists">Body Mists</li>
+  </ul>
+</aside>
   <header class="site-header">
     <nav class="nav">
       <div class="brand">
@@ -288,6 +309,36 @@
 
   updateCartCount();
   renderCartItems();
+  </script>
+
+  <script>
+  const menuToggle = document.getElementById('menuToggle');
+  const sidebar = document.getElementById('sidebar');
+  const closeSidebar = document.getElementById('closeSidebar');
+  const categoryItems = document.querySelectorAll('.category-list li');
+  const productCards = document.querySelectorAll('.card');
+
+  menuToggle.addEventListener('click', () => {
+    sidebar.classList.add('active');
+  });
+
+  closeSidebar.addEventListener('click', () => {
+    sidebar.classList.remove('active');
+  });
+
+  categoryItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const selected = item.getAttribute('data-category');
+
+      // Filter products by category
+      productCards.forEach(card => {
+        const category = card.getAttribute('data-category');
+        card.style.display = (selected === category || selected === 'all') ? 'flex' : 'none';
+      });
+
+      sidebar.classList.remove('active');
+    });
+  });
   </script>
 
 </body>   
