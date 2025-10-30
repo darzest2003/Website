@@ -45,6 +45,12 @@
 #include <condition_variable>
 #include <queue>
 #include <atomic>
+#include <bsoncxx/json.hpp>
+#include <mongocxx/client.hpp>
+#include <mongocxx/instance.hpp>
+#include <mongocxx/uri.hpp>
+#include <mongocxx/database.hpp>
+#include <mongocxx/collection.hpp>
 
 using namespace std;
 
