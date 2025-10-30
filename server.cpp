@@ -45,12 +45,7 @@
 #include <condition_variable>
 #include <queue>
 #include <atomic>
-#include <bsoncxx/json.hpp>
-#include <mongocxx/client.hpp>
-#include <mongocxx/instance.hpp>
-#include <mongocxx/uri.hpp>
-#include <mongocxx/database.hpp>
-#include <mongocxx/collection.hpp>
+
 
 using namespace std;
 
@@ -947,16 +942,7 @@ int main() {
     sigaction(SIGTERM, &sa, nullptr);
 
     // Load persisted data
-    // --- MongoDB Initialization ---
-mongocxx::instance mongoInstance{}; // Only one per process
-const char* uri_env = std::getenv("MONGODB_URI");
-std::string uri_str = uri_env ? uri_env : "mongodb+srv://..."; // fallback if needed
-mongocxx::client mongoClient{mongocxx::uri{uri_str}};
-auto db = mongoClient["onlinetraderz"];
-auto productsCollection = db["products"];
-auto ordersCollection   = db["orders"];
-
-LOGI("✅ Connected to MongoDB");
+    
 
 // Load persisted data (can later replace with MongoDB fetch)
 loadProducts();
