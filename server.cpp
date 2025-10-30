@@ -941,8 +941,20 @@ int main() {
     sigaction(SIGTERM, &sa, nullptr);
 
     // Load persisted data
-    loadProducts();
-    loadOrders();
+    // --- MongoDB Initialization ---
+mongocxx::instance mongoInstance{}; // Only one per process
+const char* uri_env = std::getenv("MONGODB_URI");
+std::string uri_str = uri_env ? uri_env : "mongodb+srv://..."; // fallback if needed
+mongocxx::client mongoClient{mongocxx::uri{uri_str}};
+auto db = mongoClient["onlinetraderz"];
+auto productsCollection = db["products"];
+auto ordersCollection   = db["orders"];
+
+LOGI("✅ Connected to MongoDB");
+
+// Load persisted data (can later replace with MongoDB fetch)
+loadProducts();
+loadOrders();
 
     // Create data directory if missing
     ensureDataFolder("");
