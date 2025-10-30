@@ -23,10 +23,11 @@ RUN echo "=== Building MongoDB C++ Driver ===" && \
     git clone https://github.com/mongodb/mongo-cxx-driver.git && \
     cd mongo-cxx-driver && \
     git checkout releases/stable && \
-    mkdir build && cd build && \
-    cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local && \
-    make -j$(nproc) && make install && \
-    cd ../.. && rm -rf mongo-cxx-driver
+    
+    mkdir -p build && cd build && \
+cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local && \
+make -j2 && make install && \
+cd ../.. && rm -rf mongo-cxx-driver
 
 # -------------------
 # Stage 2: Build and Run Server
