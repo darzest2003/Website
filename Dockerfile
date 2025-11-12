@@ -54,6 +54,7 @@
 # Run the server
 #ENTRYPOINT ["./server"]
 
+# ========================
 # =========================
 # 1️⃣ Build Stage
 # =========================
@@ -84,7 +85,7 @@ RUN apt-get update && apt-get install -y \
     ca-certificates sqlite3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user for safety
+# Use a non-root user
 RUN useradd -m appuser
 USER appuser
 
@@ -93,18 +94,14 @@ WORKDIR /app
 # Copy compiled binary from builder
 COPY --from=builder /app/server .
 
-# Copy public assets (if any)
+# Copy public assets
 COPY public ./public
 
-# Ensure data directory exists
-RUN mkdir -p /app/data
-
-# Expose default port
+# Expose the port
 EXPOSE 8080
 
-# Environment variables (you can adjust in Render dashboard)
+# Environment variables
 ENV PORT=8080
-ENV DATA_DIR=/app/data
 ENV MAX_WORKERS=4
 
 # Run the server
