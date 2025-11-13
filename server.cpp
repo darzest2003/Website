@@ -1,21 +1,7 @@
-         // server.cpp
+// server.cpp
 // Polished single-file C++ HTTP server for ONLINETRADERZ
-// - No external dependencies
-// - Persistent products & orders stored in data/*.txt
-// - Proper save on add/delete
-// - Shipping label endpoint that returns printable HTML with a simulated barcode
-// - CORS headers included
-// - Basic JSON/form parsing compatible with your front-end
-
-// =================== PROFESSIONAL ENHANCEMENTS ADDED AT TOP ===================
-// - Structured logging (INFO/WARN/ERROR)
-// - ThreadPool for concurrent client handling
-// - Graceful shutdown (SIGINT/SIGTERM)
-// - Config from environment (PORT, MAX_WORKERS, DATA_DIR)
-// - Safety wrappers around client handling to prevent crashes
-// - Notes: Original code is preserved and incorporated verbatim; enhancements
-//   are additive and minimal invasive to original functions/identifiers.
-// ============================================================================
+// SQLite port of original file-backed server (ready-to-compile).
+// Compile with: g++ server.cpp -o server -pthread -lsqlite3
 
 #include <iostream>
 #include <netinet/tcp.h>
@@ -45,7 +31,7 @@
 #include <condition_variable>
 #include <queue>
 #include <atomic>
-
+#include <sqlite3.h>
 
 using namespace std;
 
@@ -130,6 +116,8 @@ private:
 
 // =================== Graceful shutdown handling ===================
 static ThreadPool *g_threadpool_ptr = nullptr;
+static sqlite3 *g_db = nullptr;
+static mutex g_storage_mutex; // simple mutex to guard products/orders vectors & db writes
 
 static void gracefulShutdown(int signo) {
     string s = "Received signal ";
@@ -272,116 +260,291 @@ bool atomicWriteFile(const string &path, const string &content) {
     return true;
 }
 
-// ------------------- Storage (products & orders) -------------------
+// ------------------- Storage (products & orders) using SQLite -------------------
+
+// Create DB and tables if not exist
+bool initDatabase() {
+    string dbPath = ensureDataFolder("server.db");
+    int rc = sqlite3_open(dbPath.c_str(), &g_db);
+    if (rc != SQLITE_OK) {
+        LOGE(string("Failed to open SQLite database: ") + sqlite3_errmsg(g_db));
+        if (g_db) sqlite3_close(g_db);
+        g_db = nullptr;
+        return false;
+    }
+    const char *createSQL =
+        "BEGIN;"
+        "CREATE TABLE IF NOT EXISTS products ("
+        "id TEXT PRIMARY KEY,"
+        "title TEXT,"
+        "price REAL,"
+        "img TEXT,"
+        "stock INTEGER"
+        ");"
+        "CREATE TABLE IF NOT EXISTS orders ("
+        "id TEXT PRIMARY KEY,"
+        "product TEXT,"
+        "name TEXT,"
+        "contact TEXT,"
+        "email TEXT,"
+        "address TEXT,"
+        "productPrice TEXT,"
+        "deliveryCharges TEXT,"
+        "totalAmount TEXT,"
+        "payment TEXT,"
+        "createdAt TEXT"
+        ");"
+        "COMMIT;";
+    char *err = nullptr;
+    rc = sqlite3_exec(g_db, createSQL, nullptr, nullptr, &err);
+    if (rc != SQLITE_OK) {
+        LOGE(string("Failed to create tables: ") + (err ? err : "unknown"));
+        if (err) sqlite3_free(err);
+        return false;
+    }
+    // Enable WAL mode for better concurrency (best-effort)
+    sqlite3_exec(g_db, "PRAGMA journal_mode=WAL;", nullptr, nullptr, nullptr);
+    return true;
+}
+
+// Attempt to migrate existing text files into SQLite if tables are empty
+void migrateTextFilesIfNeeded() {
+    lock_guard<mutex> lock(g_storage_mutex);
+    if (!g_db) return;
+
+    // Check if products table is empty
+    int count = 0;
+    sqlite3_stmt *stmt = nullptr;
+    const char *countProductsSql = "SELECT COUNT(*) FROM products;";
+    if (sqlite3_prepare_v2(g_db, countProductsSql, -1, &stmt, nullptr) == SQLITE_OK) {
+        if (sqlite3_step(stmt) == SQLITE_ROW) count = sqlite3_column_int(stmt, 0);
+    }
+    sqlite3_finalize(stmt);
+
+    if (count == 0) {
+        // Try to read products.txt and insert rows
+        string productsPath = ensureDataFolder("products.txt");
+        ifstream pf(productsPath);
+        if (pf.is_open()) {
+            LOGI("Migrating products.txt into SQLite (products table empty)");
+            string line;
+            sqlite3_exec(g_db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
+            const char *insertSQL = "INSERT INTO products (id,title,price,img,stock) VALUES (?,?,?,?,?);";
+            sqlite3_stmt *ins = nullptr;
+            sqlite3_prepare_v2(g_db, insertSQL, -1, &ins, nullptr);
+            while (getline(pf, line)) {
+                if (line.empty()) continue;
+                istringstream iss(line);
+                Product p; string priceStr, stockStr;
+                getline(iss, p.id, '|');
+                getline(iss, p.title, '|');
+                getline(iss, priceStr, '|');
+                try { p.price = priceStr.empty() ? 0.0 : stod(priceStr); } catch(...) { p.price = 0.0; }
+                getline(iss, p.img, '|');
+                getline(iss, stockStr, '|');
+                try { p.stock = stockStr.empty() ? 0 : stoi(stockStr); } catch(...) { p.stock = 0; }
+
+                sqlite3_bind_text(ins, 1, p.id.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(ins, 2, p.title.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_double(ins, 3, p.price);
+                sqlite3_bind_text(ins, 4, p.img.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_int(ins, 5, p.stock);
+                sqlite3_step(ins);
+                sqlite3_reset(ins);
+            }
+            sqlite3_finalize(ins);
+            sqlite3_exec(g_db, "COMMIT;", nullptr, nullptr, nullptr);
+            pf.close();
+        }
+    }
+
+    // Check if orders table is empty
+    count = 0;
+    const char *countOrdersSql = "SELECT COUNT(*) FROM orders;";
+    stmt = nullptr;
+    if (sqlite3_prepare_v2(g_db, countOrdersSql, -1, &stmt, nullptr) == SQLITE_OK) {
+        if (sqlite3_step(stmt) == SQLITE_ROW) count = sqlite3_column_int(stmt, 0);
+    }
+    sqlite3_finalize(stmt);
+
+    if (count == 0) {
+        string ordersPath = ensureDataFolder("orders.txt");
+        ifstream ofile(ordersPath);
+        if (ofile.is_open()) {
+            LOGI("Migrating orders.txt into SQLite (orders table empty)");
+            string line;
+            sqlite3_exec(g_db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
+            const char *insertSQL = "INSERT INTO orders (id,product,name,contact,email,address,productPrice,deliveryCharges,totalAmount,payment,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?);";
+            sqlite3_stmt *ins = nullptr;
+            sqlite3_prepare_v2(g_db, insertSQL, -1, &ins, nullptr);
+            while (getline(ofile, line)) {
+                if (line.empty()) continue;
+                istringstream iss(line);
+                Order o;
+                getline(iss, o.id, '|');
+                getline(iss, o.product, '|');
+                getline(iss, o.name, '|');
+                getline(iss, o.contact, '|');
+                getline(iss, o.email, '|');
+                getline(iss, o.address, '|');
+                getline(iss, o.productPrice, '|');
+                getline(iss, o.deliveryCharges, '|');
+                getline(iss, o.totalAmount, '|');
+                getline(iss, o.payment, '|');
+                getline(iss, o.createdAt, '|');
+
+                sqlite3_bind_text(ins, 1, o.id.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(ins, 2, o.product.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(ins, 3, o.name.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(ins, 4, o.contact.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(ins, 5, o.email.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(ins, 6, o.address.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(ins, 7, o.productPrice.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(ins, 8, o.deliveryCharges.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(ins, 9, o.totalAmount.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(ins, 10, o.payment.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(ins, 11, o.createdAt.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_step(ins);
+                sqlite3_reset(ins);
+            }
+            sqlite3_finalize(ins);
+            sqlite3_exec(g_db, "COMMIT;", nullptr, nullptr, nullptr);
+            ofile.close();
+        }
+    }
+}
+
+// Load products from SQLite into memory
 void loadProducts() {
+    lock_guard<mutex> lock(g_storage_mutex);
     products.clear();
-    string path = ensureDataFolder("products.txt");
-    // ensure exists
-    ofstream(path, ios::app).close();
-
-    ifstream file(path);
-    if (!file.is_open()) return;
-
-    string line;
-    while (getline(file, line)) {
-        if (line.empty()) continue;
-        istringstream iss(line);
-        Product p;
-        string priceStr, stockStr;
-        getline(iss, p.id, '|');
-        getline(iss, p.title, '|');
-        getline(iss, priceStr, '|');
-        try { p.price = priceStr.empty() ? 0.0 : stod(priceStr); } catch (...) { p.price = 0.0; }
-        getline(iss, p.img, '|');
-        getline(iss, stockStr, '|');
-        try { p.stock = stockStr.empty() ? 0 : stoi(stockStr); } catch (...) { p.stock = 0; }
-
-        products.push_back(p);
-
-        if (p.id.size() > 1 && p.id[0] == 'p') {
-            try {
-                int num = stoi(p.id.substr(1));
-                if (num > currentProductID) currentProductID = num;
-            } catch (...) {}
+    if (!g_db) return;
+    const char *sql = "SELECT id, title, price, img, stock FROM products ORDER BY id;";
+    sqlite3_stmt *stmt = nullptr;
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            Product p;
+            const unsigned char* c0 = sqlite3_column_text(stmt, 0);
+            const unsigned char* c1 = sqlite3_column_text(stmt, 1);
+            const unsigned char* c3 = sqlite3_column_text(stmt, 3);
+            p.id = c0 ? (const char*)c0 : "";
+            p.title = c1 ? (const char*)c1 : "";
+            p.price = sqlite3_column_double(stmt, 2);
+            p.img = c3 ? (const char*)c3 : "";
+            p.stock = sqlite3_column_int(stmt, 4);
+            products.push_back(p);
+            if (p.id.size() > 1 && p.id[0] == 'p') {
+                try {
+                    int num = stoi(p.id.substr(1));
+                    if (num > currentProductID) currentProductID = num;
+                } catch (...) {}
+            }
         }
     }
-    file.close();
+    sqlite3_finalize(stmt);
 }
 
+// Persist in-memory products to DB (simple: delete all and insert)
 void saveProducts() {
-    string path = ensureDataFolder("products.txt");
-    stringstream ss;
-    for (auto &p : products) {
-        ss << p.id << "|" << p.title << "|" << fixed << setprecision(2) << p.price << "|" << p.img << "|" << p.stock << "\n";
-    }
-    string content = ss.str();
-    if (!atomicWriteFile(path, content)) {
-        // fallback to regular write
-        ofstream file(path, ios::trunc);
-        if (!file.is_open()) {
-            cerr << "Failed to open products.txt for writing!\n";
-            return;
+    lock_guard<mutex> lock(g_storage_mutex);
+    if (!g_db) return;
+    sqlite3_exec(g_db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
+    sqlite3_exec(g_db, "DELETE FROM products;", nullptr, nullptr, nullptr);
+    const char *sql = "INSERT INTO products (id, title, price, img, stock) VALUES (?, ?, ?, ?, ?);";
+    sqlite3_stmt *stmt = nullptr;
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        for (auto &p : products) {
+            sqlite3_bind_text(stmt, 1, p.id.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 2, p.title.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_double(stmt, 3, p.price);
+            sqlite3_bind_text(stmt, 4, p.img.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int(stmt, 5, p.stock);
+            sqlite3_step(stmt);
+            sqlite3_reset(stmt);
         }
-        file << content;
-        file.close();
+    } else {
+        LOGE("Failed to prepare insert into products");
     }
+    sqlite3_finalize(stmt);
+    sqlite3_exec(g_db, "COMMIT;", nullptr, nullptr, nullptr);
 }
 
+// Load orders from SQLite into memory
 void loadOrders() {
+    lock_guard<mutex> lock(g_storage_mutex);
     orders.clear();
-    string path = ensureDataFolder("orders.txt");
-    ofstream(path, ios::app).close();
-    ifstream file(path);
-    if (!file.is_open()) return;
-    string line;
-    while (getline(file, line)) {
-        if (line.empty()) continue;
-        istringstream iss(line);
-        Order o;
-        getline(iss, o.id, '|');
-        getline(iss, o.product, '|');
-        getline(iss, o.name, '|');
-        getline(iss, o.contact, '|');
-        getline(iss, o.email, '|');
-        getline(iss, o.address, '|');
-        getline(iss, o.productPrice, '|');
-        getline(iss, o.deliveryCharges, '|');
-        getline(iss, o.totalAmount, '|');
-        getline(iss, o.payment, '|');
-        getline(iss, o.createdAt, '|');
-        orders.push_back(o);
-
-        if (o.id.size() > 1 && o.id[0] == 'O') {
-            try {
-                int num = stoi(o.id.substr(1));
-                if (num > currentOrderID) currentOrderID = num;
-            } catch (...) {}
+    if (!g_db) return;
+    const char *sql = "SELECT id, product, name, contact, email, address, productPrice, deliveryCharges, totalAmount, payment, createdAt FROM orders ORDER BY id;";
+    sqlite3_stmt *stmt = nullptr;
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            Order o;
+            const unsigned char* c0 = sqlite3_column_text(stmt, 0);
+            const unsigned char* c1 = sqlite3_column_text(stmt, 1);
+            const unsigned char* c2 = sqlite3_column_text(stmt, 2);
+            const unsigned char* c3 = sqlite3_column_text(stmt, 3);
+            const unsigned char* c4 = sqlite3_column_text(stmt, 4);
+            const unsigned char* c5 = sqlite3_column_text(stmt, 5);
+            const unsigned char* c6 = sqlite3_column_text(stmt, 6);
+            const unsigned char* c7 = sqlite3_column_text(stmt, 7);
+            const unsigned char* c8 = sqlite3_column_text(stmt, 8);
+            const unsigned char* c9 = sqlite3_column_text(stmt, 9);
+            const unsigned char* c10 = sqlite3_column_text(stmt, 10);
+            o.id = c0 ? (const char*)c0 : "";
+            o.product = c1 ? (const char*)c1 : "";
+            o.name = c2 ? (const char*)c2 : "";
+            o.contact = c3 ? (const char*)c3 : "";
+            o.email = c4 ? (const char*)c4 : "";
+            o.address = c5 ? (const char*)c5 : "";
+            o.productPrice = c6 ? (const char*)c6 : "";
+            o.deliveryCharges = c7 ? (const char*)c7 : "";
+            o.totalAmount = c8 ? (const char*)c8 : "";
+            o.payment = c9 ? (const char*)c9 : "";
+            o.createdAt = c10 ? (const char*)c10 : "";
+            orders.push_back(o);
+            if (o.id.size() > 1 && o.id[0] == 'O') {
+                try {
+                    int num = stoi(o.id.substr(1));
+                    if (num > currentOrderID) currentOrderID = num;
+                } catch (...) {}
+            }
         }
     }
-    file.close();
+    sqlite3_finalize(stmt);
 }
 
+// Persist in-memory orders to DB (simple: delete all and insert)
 void saveOrders() {
-    string path = ensureDataFolder("orders.txt");
-    stringstream ss;
-    for (auto &o : orders) {
-        ss << o.id << "|" << o.product << "|" << o.name << "|" << o.contact << "|"
-           << o.email << "|" << o.address << "|" << o.productPrice << "|" << o.deliveryCharges << "|"
-           << o.totalAmount << "|" << o.payment << "|" << o.createdAt << "|\n";
-    }
-    string content = ss.str();
-    if (!atomicWriteFile(path, content)) {
-        // fallback to regular write
-        ofstream file(path, ios::trunc);
-        if (!file.is_open()) {
-            cerr << "Failed to open orders.txt for writing!\n";
-            return;
+    lock_guard<mutex> lock(g_storage_mutex);
+    if (!g_db) return;
+    sqlite3_exec(g_db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
+    sqlite3_exec(g_db, "DELETE FROM orders;", nullptr, nullptr, nullptr);
+    const char *sql = "INSERT INTO orders (id, product, name, contact, email, address, productPrice, deliveryCharges, totalAmount, payment, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+    sqlite3_stmt *stmt = nullptr;
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        for (auto &o : orders) {
+            sqlite3_bind_text(stmt, 1, o.id.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 2, o.product.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 3, o.name.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 4, o.contact.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 5, o.email.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 6, o.address.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 7, o.productPrice.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 8, o.deliveryCharges.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 9, o.totalAmount.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 10, o.payment.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 11, o.createdAt.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_step(stmt);
+            sqlite3_reset(stmt);
         }
-        file << content;
-        file.close();
+    } else {
+        LOGE("Failed to prepare insert into orders");
     }
+    sqlite3_finalize(stmt);
+    sqlite3_exec(g_db, "COMMIT;", nullptr, nullptr, nullptr);
 }
 
+// ------------------- Utilities (unchanged) -------------------
 string generateProductID() { return "p" + to_string(++currentProductID); }
 string generateOrderID() { return "O" + to_string(++currentOrderID); }
 
@@ -549,7 +712,7 @@ string generateBarcodeHtml(const string &seed) {
     return ss.str();
 }
 
-// ------------------- Request handling -------------------
+// ------------------- Request handling (keeps original logic) -------------------
 void handleClient(int clientSocket) {
     const int BUF_SIZE = 8192;
     string request;
@@ -632,16 +795,20 @@ void handleClient(int clientSocket) {
     if (path.find("/api/products") == 0 && method == "GET") {
         stringstream ss;
         ss << "[";
-        for (size_t i=0;i<products.size();++i) {
-            auto &p = products[i];
-            ss << "{"
-               << "\"id\":\"" << htmlEscape(p.id) << "\","
-               << "\"title\":\"" << htmlEscape(p.title) << "\","
-               << "\"price\":" << fixed << setprecision(2) << p.price << ","
-               << "\"img\":\"" << htmlEscape(p.img) << "\","
-               << "\"stock\":" << p.stock
-               << "}";
-            if (i+1<products.size()) ss << ",";
+        // read-lock by copying products (we hold mutex while copying)
+        {
+            lock_guard<mutex> lock(g_storage_mutex);
+            for (size_t i=0;i<products.size();++i) {
+                auto &p = products[i];
+                ss << "{"
+                   << "\"id\":\"" << htmlEscape(p.id) << "\","
+                   << "\"title\":\"" << htmlEscape(p.title) << "\","
+                   << "\"price\":" << fixed << setprecision(2) << p.price << ","
+                   << "\"img\":\"" << htmlEscape(p.img) << "\","
+                   << "\"stock\":" << p.stock
+                   << "}";
+                if (i+1<products.size()) ss << ",";
+            }
         }
         ss << "]";
         sendResponse(clientSocket, "200 OK", "application/json", ss.str());
@@ -667,8 +834,11 @@ void handleClient(int clientSocket) {
         }
         if (p.img.empty()) p.img = "uploads/product1.jpg"; // stored under /public/uploads/
 
-        products.push_back(p);
-        saveProducts();
+        {
+            lock_guard<mutex> lock(g_storage_mutex);
+            products.push_back(p);
+            saveProducts();
+        }
         sendResponse(clientSocket, "200 OK", "text/plain", "Product added successfully");
         close(clientSocket);
         return;
@@ -684,17 +854,20 @@ void handleClient(int clientSocket) {
             close(clientSocket);
             return;
         }
-        size_t before = products.size();
-        products.erase(remove_if(products.begin(), products.end(), [&](const Product &p){
-            return trim(p.id) == id;
-        }), products.end());
-        if (products.size() < before) {
-            // ensure we write updated product list immediately
-            saveProducts();
-            sendResponse(clientSocket, "200 OK", "text/plain", "Product deleted successfully");
-        } else {
-            sendResponse(clientSocket, "404 Not Found", "text/plain", "Product not found");
+        bool deleted = false;
+        {
+            lock_guard<mutex> lock(g_storage_mutex);
+            size_t before = products.size();
+            products.erase(remove_if(products.begin(), products.end(), [&](const Product &p){
+                return trim(p.id) == id;
+            }), products.end());
+            if (products.size() < before) {
+                saveProducts();
+                deleted = true;
+            }
         }
+        if (deleted) sendResponse(clientSocket, "200 OK", "text/plain", "Product deleted successfully");
+        else sendResponse(clientSocket, "404 Not Found", "text/plain", "Product not found");
         close(clientSocket);
         return;
     }
@@ -741,21 +914,24 @@ void handleClient(int clientSocket) {
 
         double subtotal = 0.0;
         string prodSummary;
-        for (auto &pp : orderProducts) {
-            string pid = trim(pp.first);
-            int qty = pp.second;
-            double price = 0.0;
-            string title = pid;
-            for (auto &prod : products) {
-                if (trim(prod.id) == pid) {
-                    price = prod.price;
-                    title = prod.title;
-                    break;
+        {
+            lock_guard<mutex> lock(g_storage_mutex);
+            for (auto &pp : orderProducts) {
+                string pid = trim(pp.first);
+                int qty = pp.second;
+                double price = 0.0;
+                string title = pid;
+                for (auto &prod : products) {
+                    if (trim(prod.id) == pid) {
+                        price = prod.price;
+                        title = prod.title;
+                        break;
+                    }
                 }
+                subtotal += price * qty;
+                char priceBuf[64]; snprintf(priceBuf, sizeof(priceBuf), "%.2f", price);
+                prodSummary += title + " (RS." + string(priceBuf) + ") x" + to_string(qty) + ", ";
             }
-            subtotal += price * qty;
-            char priceBuf[64]; snprintf(priceBuf, sizeof(priceBuf), "%.2f", price);
-            prodSummary += title + " (RS." + string(priceBuf) + ") x" + to_string(qty) + ", ";
         }
         if (!prodSummary.empty()) { prodSummary.pop_back(); prodSummary.pop_back(); }
 
@@ -776,9 +952,12 @@ void handleClient(int clientSocket) {
         o.payment = "Cash on Delivery";
         o.createdAt = nowISO8601();
 
-        orders.push_back(o);
-        // Persist orders immediately and robustly
-        saveOrders();
+        {
+            lock_guard<mutex> lock(g_storage_mutex);
+            orders.push_back(o);
+            // Persist orders immediately and robustly
+            saveOrders();
+        }
 
         // Return order id so frontend can link to shipping label
         string response = "{\"status\":\"success\",\"message\":\"Order placed successfully\",\"orderId\":\"" + o.id + "\"}";
@@ -791,22 +970,25 @@ void handleClient(int clientSocket) {
     if (path.find("/api/orders") == 0 && method == "GET") {
         stringstream ss;
         ss << "[";
-        for (size_t i=0;i<orders.size();++i) {
-            auto &o = orders[i];
-            ss << "{"
-               << "\"id\":\"" << htmlEscape(o.id) << "\","
-               << "\"product\":\"" << htmlEscape(o.product) << "\","
-               << "\"name\":\"" << htmlEscape(o.name) << "\","
-               << "\"contact\":\"" << htmlEscape(o.contact) << "\","
-               << "\"email\":\"" << htmlEscape(o.email) << "\","
-               << "\"address\":\"" << htmlEscape(o.address) << "\","
-               << "\"productPrice\":\"" << htmlEscape(o.productPrice) << "\","
-               << "\"deliveryCharges\":\"" << htmlEscape(o.deliveryCharges) << "\","
-               << "\"totalAmount\":\"" << htmlEscape(o.totalAmount) << "\","
-               << "\"payment\":\"" << htmlEscape(o.payment) << "\","
-               << "\"createdAt\":\"" << htmlEscape(o.createdAt) << "\""
-               << "}";
-            if (i+1<orders.size()) ss << ",";
+        {
+            lock_guard<mutex> lock(g_storage_mutex);
+            for (size_t i=0;i<orders.size();++i) {
+                auto &o = orders[i];
+                ss << "{"
+                   << "\"id\":\"" << htmlEscape(o.id) << "\","
+                   << "\"product\":\"" << htmlEscape(o.product) << "\","
+                   << "\"name\":\"" << htmlEscape(o.name) << "\","
+                   << "\"contact\":\"" << htmlEscape(o.contact) << "\","
+                   << "\"email\":\"" << htmlEscape(o.email) << "\","
+                   << "\"address\":\"" << htmlEscape(o.address) << "\","
+                   << "\"productPrice\":\"" << htmlEscape(o.productPrice) << "\","
+                   << "\"deliveryCharges\":\"" << htmlEscape(o.deliveryCharges) << "\","
+                   << "\"totalAmount\":\"" << htmlEscape(o.totalAmount) << "\","
+                   << "\"payment\":\"" << htmlEscape(o.payment) << "\","
+                   << "\"createdAt\":\"" << htmlEscape(o.createdAt) << "\""
+                   << "}";
+                if (i+1<orders.size()) ss << ",";
+            }
         }
         ss << "]";
         sendResponse(clientSocket, "200 OK", "application/json", ss.str());
@@ -824,7 +1006,10 @@ void handleClient(int clientSocket) {
         }
         // find order
         Order *found = nullptr;
-        for (auto &o : orders) if (trim(o.id) == id) { found = &o; break; }
+        {
+            lock_guard<mutex> lock(g_storage_mutex);
+            for (auto &o : orders) if (trim(o.id) == id) { found = &o; break; }
+        }
         if (!found) {
             sendResponse(clientSocket, "404 Not Found", "text/plain", "Order not found");
             close(clientSocket);
@@ -930,6 +1115,22 @@ int main() {
         if (hc > 1) g_max_workers = min(hc, 8);
     }
 
+    // Create data directory if missing (ensure before DB open)
+    ensureDataFolder("");
+
+    // Initialize SQLite DB
+    if (!initDatabase()) {
+        LOGE("Could not initialize database - exiting");
+        return 1;
+    }
+
+    // Migrate any existing text files into the DB if needed
+    migrateTextFilesIfNeeded();
+
+    // Load persisted data (from DB now)
+    loadProducts();
+    loadOrders();
+
     // Ignore SIGPIPE so send() to closed sockets doesn't kill the process
     signal(SIGPIPE, SIG_IGN);
 
@@ -941,16 +1142,6 @@ int main() {
     sigaction(SIGINT, &sa, nullptr);
     sigaction(SIGTERM, &sa, nullptr);
 
-    // Load persisted data
-    
-
-// Load persisted data (can later replace with MongoDB fetch)
-loadProducts();
-loadOrders();
-
-    // Create data directory if missing
-    ensureDataFolder("");
-
     // Setup thread pool (global pointer for destructor on shutdown)
     ThreadPool pool(max(1, g_max_workers));
     g_threadpool_ptr = &pool;
@@ -958,6 +1149,7 @@ loadOrders();
     int server_fd;
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         perror("socket failed");
+        if (g_db) sqlite3_close(g_db);
         return 1;
     }
     // store global so signal handler can close
@@ -986,11 +1178,13 @@ loadOrders();
 
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
         perror("bind failed");
+        if (g_db) sqlite3_close(g_db);
         return 1;
     }
 
     if (listen(server_fd, 128) < 0) {
         perror("listen");
+        if (g_db) sqlite3_close(g_db);
         return 1;
     }
 
@@ -1049,6 +1243,13 @@ loadOrders();
     g_threadpool_ptr = nullptr;
 
     if (g_server_fd >= 0) close(g_server_fd);
+
+    if (g_db) {
+        sqlite3_close(g_db);
+        g_db = nullptr;
+        LOGI("Closed SQLite database.");
+    }
+
     LOGI("Shutdown complete");
     return 0;
 }
