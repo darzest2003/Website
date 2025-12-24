@@ -56,7 +56,12 @@ body {
   align-items: center;
   gap: 20px;
 }
-
+<!-- ☰ Mobile Menu Toggle -->
+<button class="menu-toggle" aria-label="Open menu">
+  <span></span>
+  <span></span>
+  <span></span>
+</button>
 .brand {
   display: flex;
   align-items: center;
@@ -989,4 +994,54 @@ body {
 @keyframes slideUp {
   from { transform: translateY(40px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+/* =============================== */
+/* ☰ Transparent Hamburger Button */
+/* =============================== */
+
+.menu-toggle {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 0;
+}
+
+.menu-toggle span {
+  width: 24px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+/* Hover effect */
+.menu-toggle:hover span {
+  background: #ffffff;
+}
+
+/* Optional: animate to ❌ when active */
+.menu-toggle.active span:nth-child(1) {
+  transform: translateY(8px) rotate(45deg);
+}
+
+.menu-toggle.active span:nth-child(2) {
+  opacity: 0;
+}
+
+.menu-toggle.active span:nth-child(3) {
+  transform: translateY(-8px) rotate(-45deg);
+}
+
+/* Hide on desktop (optional) */
+@media (min-width: 900px) {
+  .menu-toggle {
+    display: none;
+  }
 }
