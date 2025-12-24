@@ -1048,3 +1048,23 @@ body {
 .menu-toggle {
   display: flex !important;
 }
+/* Make sure toggle is visible on all screen sizes */
+.menu-toggle {
+  display: flex !important;
+  position: absolute;
+  top: 12px;
+  right: 20px;
+  z-index: 1200; /* above nav */
+  background: transparent;
+  padding: 6px 10px;
+}
+
+/* Adjust .nav to have relative positioning for absolute child */
+.site-header .nav {
+  position: relative;
+}
+
+/* Optional: add some right padding to nav links to prevent overlap */
+.nav-links {
+  padding-right: 60px; /* enough space for toggle on right */
+}
