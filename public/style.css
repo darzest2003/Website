@@ -38,9 +38,8 @@ body {
 
 /* ============ HEADER ============ */
 .site-header {
-  background: #f0f0f0; /* light grey */
-color: #333; /* change text color to dark for readability */
-  color: #fff;
+  background: #f5f5f7; /* soft professional grey */
+  color: #222;         /* dark charcoal for crisp readability */
   width: 100%;
   position: sticky;
   top: 0;
