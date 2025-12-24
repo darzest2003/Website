@@ -38,7 +38,7 @@ body {
 
 /* ============ HEADER ============ */
 .site-header {
-  background: #b0b0b5; /* soft professional grey */
+  background: #383838; /* soft professional grey */
   color: #222;         /* dark charcoal for crisp readability */
   width: 100%;
   position: sticky;
