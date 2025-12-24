@@ -1045,3 +1045,6 @@ body {
     display: none;
   }
 }
+.menu-toggle {
+  display: flex !important;
+}
