@@ -821,6 +821,48 @@ void handleClient(int clientSocket) {
         auto kv = parseJson(body);
         if (kv.empty()) kv = parseFormUrlEncoded(body);
         Product p;
+
+// 🔁 IF id exists → UPDATE product
+string incomingId = kv.count("id") ? trim(kv["id"]) : "";
+
+p.title = trim(kv.count("title") ? kv["title"] : "");
+try { p.price = kv.count("price") ? stod(kv["price"]) : 0.0; } catch(...) { p.price = 0.0; }
+p.img = kv.count("img") ? kv["img"] : "";
+try { p.stock = kv.count("stock") ? stoi(kv["stock"]) : 0; } catch(...) { p.stock = 0; }
+
+lock_guard<mutex> lock(g_storage_mutex);
+
+if (!incomingId.empty()) {
+    // ✏️ UPDATE EXISTING PRODUCT
+    bool updated = false;
+    for (auto &prod : products) {
+        if (prod.id == incomingId) {
+            prod.title = p.title;
+            prod.price = p.price;
+            prod.img = p.img;
+            prod.stock = p.stock;
+            updated = true;
+            break;
+        }
+    }
+    if (!updated) {
+        sendResponse(clientSocket, "404 Not Found", "application/json",
+                     "{\"status\":\"error\",\"message\":\"Product not found\"}");
+        close(clientSocket);
+        return;
+    }
+} else {
+    // ➕ ADD NEW PRODUCT
+    p.id = generateProductID();
+    products.push_back(p);
+}
+
+saveProducts();
+sendResponse(clientSocket, "200 OK", "application/json",
+             "{\"status\":\"success\"}");
+close(clientSocket);
+return;
+     /***   Product p;
         p.id = generateProductID();
         p.title = trim(kv.count("title") ? kv["title"] : "");
         try { p.price = kv.count("price") ? stod(kv["price"]) : 0.0; } catch(...) { p.price = 0.0; }
@@ -830,8 +872,8 @@ void handleClient(int clientSocket) {
         if (p.title.empty()) {
             sendResponse(clientSocket, "400 Bad Request", "application/json", "{\"status\":\"error\",\"message\":\"Title required\"}");
             close(clientSocket);
-            return;
-        }
+            return; 
+        } **/
         if (p.img.empty()) p.img = "uploads/product1.jpg"; // stored under /public/uploads/
 
         {
