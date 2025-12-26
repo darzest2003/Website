@@ -279,22 +279,7 @@ document.getElementById("addProductForm").onsubmit = async e => {
       displayProducts(window.productsCache)
     );
 
-    document.getElementById("addProductForm").onsubmit = async e => {
-      e.preventDefault();
-      const product = {
-        title: pTitle.value.trim(),
-        price: pPrice.value,
-        img: pImg.value.trim(),
-        stock: pStock.value
-      };
-      await fetch(`${API_BASE}/api/addProduct`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(product)
-      });
-      e.target.reset();
-      loadProducts();
-    };
+    
 
     // --- ORDERS ---
     async function loadOrders() {
