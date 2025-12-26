@@ -100,6 +100,40 @@
   <script>
     const API_BASE = "https://cppbackened.onrender.com";
 
+      //new
+      // --- ADD PRODUCT ---
+document.getElementById("addProductForm").onsubmit = async e => {
+  e.preventDefault();
+
+  const product = {
+    title: document.getElementById("pTitle").value.trim(),
+    price: Number(document.getElementById("pPrice").value),
+    img: document.getElementById("pImg").value.trim(),
+    stock: Number(document.getElementById("pStock").value)
+  };
+
+  try {
+    const res = await fetch(`${API_BASE}/api/addProduct`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(product)
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      alert(data.message || "Failed to add product");
+      return;
+    }
+
+    e.target.reset();
+    loadProducts();
+  } catch (err) {
+    console.error(err);
+    alert("Server error");
+  }
+};
+      
+
     // --- Sidebar Toggle for Mobile ---
     const sidebar = document.getElementById("sidebar");
     const menuToggle = document.getElementById("menuToggle");
