@@ -1121,17 +1121,25 @@ int main() {
     ensureDataFolder("");
 
     // Initialize SQLite DB
-    if (!initDatabase()) {
-        LOGE("Could not initialize database - exiting");
-        return 1;
+  //  if (!initDatabase()) {
+       // LOGE("Could not initialize database - exiting");
+       // return 1;
     }
 
     // Migrate any existing text files into the DB if needed
-    migrateTextFilesIfNeeded();
+ //   migrateTextFilesIfNeeded();
 
     // Load persisted data (from DB now)
-    loadProducts();
-    loadOrders();
+  //  loadProducts();
+   // loadOrders();   26dec2025 changes
+if (!g_db.init()) {
+    LOGE("Could not initialize database - exiting");
+    return 1;
+}
+
+// Load data from PostgreSQL
+loadProducts();
+loadOrders();
 
     // Ignore SIGPIPE so send() to closed sockets doesn't kill the process
     signal(SIGPIPE, SIG_IGN);
