@@ -4,7 +4,6 @@
 // Compile with: g++ server.cpp -o server -pthread -lsqlite3
 
 #include <iostream>
-#include "database.h"
 #include <netinet/tcp.h>
 #include <cstdlib>
 #include <fstream>
@@ -32,7 +31,7 @@
 #include <condition_variable>
 #include <queue>
 #include <atomic>
-//#include <sqlite3.h>
+#include <sqlite3.h>
 
 using namespace std;
 
@@ -117,9 +116,8 @@ private:
 
 // =================== Graceful shutdown handling ===================
 static ThreadPool *g_threadpool_ptr = nullptr;
-//static sqlite3 *g_db = nullptr;
-//static mutex g_storage_mutex; // simple mutex to guard products/orders vectors & db writes
-static Database g_db;
+static sqlite3 *g_db = nullptr;
+static mutex g_storage_mutex; // simple mutex to guard products/orders vectors & db writes
 
 static void gracefulShutdown(int signo) {
     string s = "Received signal ";
@@ -1121,25 +1119,17 @@ int main() {
     ensureDataFolder("");
 
     // Initialize SQLite DB
-  //  if (!initDatabase()) {
-       // LOGE("Could not initialize database - exiting");
-       // return 1;
+    if (!initDatabase()) {
+        LOGE("Could not initialize database - exiting");
+        return 1;
     }
 
     // Migrate any existing text files into the DB if needed
- //   migrateTextFilesIfNeeded();
+    migrateTextFilesIfNeeded();
 
     // Load persisted data (from DB now)
-  //  loadProducts();
-   // loadOrders();   26dec2025 changes
-if (!g_db.init()) {
-    LOGE("Could not initialize database - exiting");
-    return 1;
-}
-
-// Load data from PostgreSQL
-loadProducts();
-loadOrders();
+    loadProducts();
+    loadOrders();
 
     // Ignore SIGPIPE so send() to closed sockets doesn't kill the process
     signal(SIGPIPE, SIG_IGN);
