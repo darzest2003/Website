@@ -4,6 +4,7 @@
 // Compile with: g++ server.cpp -o server -pthread -lsqlite3
 
 #include <iostream>
+#include "database.h"
 #include <netinet/tcp.h>
 #include <cstdlib>
 #include <fstream>
