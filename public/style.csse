@@ -372,3 +372,90 @@ img {
   width: 60px;
   z-index: 1500;
   }
+/* =========================
+   MOBILE FIXES
+========================= */
+@media (max-width: 768px) {
+
+  /* HEADER */
+  .nav {
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+  }
+
+  .nav-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .nav-links a {
+    margin: 6px 10px;
+  }
+
+  .nav-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  /* MENU BUTTON */
+  .menu-toggle {
+    top: 10px;
+    left: 10px;
+    padding: 6px 10px;
+    font-size: 20px;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 85%;
+    max-width: 300px;
+  }
+
+  /* HERO */
+  .hero h1 {
+    font-size: 28px;
+  }
+
+  .hero p {
+    font-size: 16px;
+  }
+
+  /* LOCK BANNER */
+  .banner-images {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .banner-images img {
+    width: 100%;
+    max-width: 280px;
+  }
+
+  /* TOOLS */
+  .tools {
+    flex-direction: column;
+  }
+
+  /* PRODUCT GRID */
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card img {
+    height: 180px;
+  }
+
+  /* CART SIDEBAR */
+  .cart-sidebar {
+    width: 90%;
+  }
+
+  /* QUICK VIEW / MODALS */
+  .quickview-card,
+  .checkout-form,
+  .thank-card {
+    width: 95%;
+  }
+}
