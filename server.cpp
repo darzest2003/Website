@@ -117,8 +117,9 @@ private:
 
 // =================== Graceful shutdown handling ===================
 static ThreadPool *g_threadpool_ptr = nullptr;
-static sqlite3 *g_db = nullptr;
-static mutex g_storage_mutex; // simple mutex to guard products/orders vectors & db writes
+//static sqlite3 *g_db = nullptr;
+//static mutex g_storage_mutex; // simple mutex to guard products/orders vectors & db writes
+static Database g_db;
 
 static void gracefulShutdown(int signo) {
     string s = "Received signal ";
