@@ -883,7 +883,7 @@ return;
         }
         sendResponse(clientSocket, "200 OK", "text/plain", "Product added successfully");
         close(clientSocket);
-        return; **/
+        return; 
     }
 
     // POST /api/deleteProduct
@@ -894,7 +894,7 @@ return;
         if (id.empty()) {
             sendResponse(clientSocket, "400 Bad Request", "text/plain", "id required");
             close(clientSocket);
-            return;
+            return;  **/
         }
         bool deleted = false;
         {
