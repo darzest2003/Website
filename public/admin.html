@@ -137,32 +137,7 @@ closeSidebarBtn.addEventListener("click", () => {
         sidebar.classList.remove("open"); // close sidebar on mobile after navigation
       });
     });
-document.getElementById("addProductForm").onsubmit = async e => {
-  e.preventDefault();
-  const product = {
-    title: document.getElementById("pTitle").value.trim(),
-    price: Number(document.getElementById("pPrice").value),
-    img: document.getElementById("pImg").value.trim(),
-    stock: Number(document.getElementById("pStock").value)
-  };
-  try {
-    const res = await fetch("https://cppbackened.onrender.com/api/addProduct", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(product)
-    });
-    if (res.ok) {
-      e.target.reset();
-      loadProducts(); // reload products after adding
-    } else {
-      const data = await res.json();
-      alert("Error: " + (data.message || "Check console"));
-    }
-  } catch (err) {
-    console.error(err);
-    alert("Server error, check console");
-  }
-};
+
     // --- Theme Switch ---
     const themeSwitcher = document.getElementById("themeSwitcher");
     if (localStorage.getItem("theme") === "dark") {
