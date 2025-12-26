@@ -223,7 +223,37 @@ img {
   gap: 25px;
   padding: 0 20px;
 }
+/* ================= PRODUCT BADGES ================= */
+.card {
+  position: relative; /* needed for badge positioning */
+}
 
+/* Badge container */
+.badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #fff;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+/* Badge colors */
+.badge.sale {
+  background: #ff3b3b;
+}
+
+.badge.new {
+  background: #28a745;
+}
+
+.badge.hot {
+  background: #ff6a00;
+}
 .card {
   background: #fff;
   border-radius: 14px;
