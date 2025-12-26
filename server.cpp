@@ -873,7 +873,7 @@ return;
             sendResponse(clientSocket, "400 Bad Request", "application/json", "{\"status\":\"error\",\"message\":\"Title required\"}");
             close(clientSocket);
             return; 
-        } **/
+        } 
         if (p.img.empty()) p.img = "uploads/product1.jpg"; // stored under /public/uploads/
 
         {
@@ -883,7 +883,7 @@ return;
         }
         sendResponse(clientSocket, "200 OK", "text/plain", "Product added successfully");
         close(clientSocket);
-        return;
+        return; **/
     }
 
     // POST /api/deleteProduct
