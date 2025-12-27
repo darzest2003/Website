@@ -645,6 +645,28 @@ document.addEventListener("DOMContentLoaded", () => {
   renderCartItems();
   initFiltersAndSearch();
 });
+    <script>
+document.addEventListener("DOMContentLoaded", () => {
+  const cartBtn = document.querySelector(".cart-btn");
+  const cartSidebar = document.getElementById("cartSidebar");
+  const closeCart = document.getElementById("closeCart");
+
+  // Open cart
+  cartBtn.addEventListener("click", () => {
+    cartSidebar.classList.add("active");
+  });
+
+  // Close cart
+  closeCart.addEventListener("click", () => {
+    cartSidebar.classList.remove("active");
+  });
+
+  // Ensure cart count and items are correct
+  if (!window.cart) window.cart = JSON.parse(localStorage.getItem("cart")) || [];
+  updateCartCount();
+  renderCartItems();
+});
+</script>
 </script>
   </script>
 
