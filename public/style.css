@@ -557,3 +557,17 @@ img {
   background: #ff6a00;
   color: #fff;
 }
+/* =========================
+   STOCK STATUS COLORS
+========================= */
+.stock {
+  font-size: 14px;
+}
+
+.stock.out {
+  color: #ff3b3b;
+}
+
+.stock.in {
+  color: #28a745;
+}
