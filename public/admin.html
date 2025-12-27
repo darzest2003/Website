@@ -119,17 +119,18 @@ async function loadProducts(){
       </li>`;
   });
 }
-
 async function addProduct() {
   const title = document.getElementById("pTitle").value.trim();
   const price = document.getElementById("pPrice").value.trim();
   const stock = document.getElementById("pStock").value.trim();
-  const img = document.getElementById("pImg").value.trim();
+  const imgInput = document.getElementById("pImg").value.trim();
 
-  if (!title || !price || !stock || !img) {
+  if (!title || !price || !stock || !imgInput) {
     alert("❌ Please fill all product fields");
     return;
   }
+
+  const img = "uploads/" + imgInput; // <- prepend uploads/ to match your folder structure
 
   try {
     const res = await fetch(`${API}/api/addProduct`, {
