@@ -736,3 +736,36 @@ flex-direction: column;
 .checkout-form select {
   appearance: none;
 }
+/* ---------------- Product Detail Overlay ---------------- */
+.product-detail-overlay{
+    position: fixed;
+    top:0; left:0; width:100%; height:100%;
+    background: rgba(0,0,0,0.7);
+    display:flex; justify-content:center; align-items:center;
+    z-index:9999;
+}
+.product-detail{
+    background:#fff;
+    width:90%; max-width:900px;
+    max-height:90%;
+    overflow:auto;
+    border-radius:10px;
+    display:flex; flex-direction:column;
+}
+.detail-content{
+    display:flex; flex-direction:row; gap:20px; padding:20px;
+}
+.detail-img img{
+    width:100%; height:auto; max-width:400px;
+    border-radius:10px;
+}
+.detail-info{
+    flex:1; display:flex; flex-direction:column;
+}
+.detail-info .actions{
+    margin-top:auto; display:flex; gap:10px;
+}
+@media(max-width:768px){
+    .detail-content{ flex-direction:column; }
+    .detail-img img{ max-width:100%; }
+}
