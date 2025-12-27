@@ -325,53 +325,6 @@ function displayProducts(products) {
   });
 
 
-
-
-
-
-
-    // submit button
-    modal.querySelector("#submitOrder").addEventListener("click", () => {
-      const name = document.getElementById("custName").value.trim();
-      const email = document.getElementById("custEmail").value.trim();
-      const contact = document.getElementById("custContact").value.trim();
-      const address = document.getElementById("custAddress").value.trim();
-      if (!name || !email || !contact || !address) {
-        alert("Please fill all details");
-        return;
-      }
-
-      const orderId = "OZ" + Math.floor(100000 + Math.random() * 900000);
-      const total = document.getElementById("cartTotal").textContent;
-      modal.remove();
-
-      const popup = document.createElement("div");
-      popup.className = "thank-popup";
-      popup.innerHTML = `
-        <!-- ORDER SUCCESS POPUP -->
-<div class="thank-popup" id="thankPopup" style="display:none;">
-  <div class="thank-card">
-    <h2>🎉 Order Successful!</h2>
-    <p>Your order has been placed successfully.</p>
-    <p class="redirect-text">Redirecting to home page in <span id="countdown">10</span> seconds...</p>
-  </div>
-</div>
-      `;
-      document.body.appendChild(popup);
-
-      const msg = encodeURIComponent(
-        `Hello ${name}! 👋 Your order (${orderId}) has been placed successfully.\n\nTotal: Rs.${total}\nAddress: ${address}\nThank you for shopping at ONLINETRADERZ!`
-      );
-      window.open(`https://wa.me/${contact}?text=${msg}`, "_blank");
-
-      setTimeout(() => {
-        popup.remove();
-        localStorage.removeItem("cart");
-        window.location.href = "index.html";
-      }, 5000);
-    });
-  });
-
   updateCartCount();
   renderCartItems();
   </script>
