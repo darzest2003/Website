@@ -120,18 +120,46 @@ async function loadProducts(){
   });
 }
 
-async function addProduct(){
-  await fetch(`${API}/api/addProduct`,{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      title:pTitle.value,
-      price:pPrice.value,
-      stock:pStock.value,
-      img:pImg.value
-    })
-  });
-  loadProducts();
+async function addProduct() {
+  const title = document.getElementById("pTitle").value.trim();
+  const price = document.getElementById("pPrice").value.trim();
+  const stock = document.getElementById("pStock").value.trim();
+  const img = document.getElementById("pImg").value.trim();
+
+  if (!title || !price || !stock || !img) {
+    alert("❌ Please fill all product fields");
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API}/api/addProduct`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: String(title),
+        price: String(price),
+        stock: String(stock),
+        img: String(img)
+      })
+    });
+
+    if (!res.ok) {
+      alert("❌ Failed to add product");
+      return;
+    }
+
+    alert("✅ Product added successfully");
+
+    document.getElementById("pTitle").value = "";
+    document.getElementById("pPrice").value = "";
+    document.getElementById("pStock").value = "";
+    document.getElementById("pImg").value = "";
+
+    loadProducts();
+  } catch (err) {
+    console.error(err);
+    alert("❌ Server error while adding product");
+  }
 }
 
 async function deleteProduct(id){
