@@ -241,6 +241,123 @@ function setupQuickView(products) {
             document.body.appendChild(modal);
 
             modal.querySelector('.close-view').addEventListener('click', () => modal.remove());
+
+
+  <script>
+const API_BASE = "https://cppbackened.onrender.com";
+
+// --- Cart ---
+let cart = JSON.parse(localStorage.getItem("cart")) || [];
+
+function updateCartCount() {
+    document.querySelector(".cart-count").textContent = cart.length;
+}
+
+function saveCart() {
+    localStorage.setItem("cart", JSON.stringify(cart));
+    updateCartCount();
+    renderCartItems();
+}
+
+function addToCart(product) {
+    const existing = cart.find(item => item.id === product.id);
+    if (existing) {
+        existing.quantity += 1;
+    } else {
+        product.quantity = 1;
+        cart.push(product);
+    }
+    saveCart();
+    alert(`${product.title} added to cart!`);
+}
+
+function changeQuantity(index, delta) {
+    cart[index].quantity += delta;
+    if (cart[index].quantity <= 0) cart.splice(index, 1);
+    saveCart();
+}
+
+function removeFromCart(index) {
+    cart.splice(index, 1);
+    saveCart();
+}
+
+function renderCartItems() {
+    const cartContainer = document.getElementById("cartItems");
+    const total = document.getElementById("cartTotal");
+    cartContainer.innerHTML = "";
+    let sum = 0;
+
+    cart.forEach((item, i) => {
+        const div = document.createElement("div");
+        div.className = "cart-item";
+        div.innerHTML = `
+            <img src="${item.img}" alt="${item.title}">
+            <div class="cart-item-details">
+                <h4>${item.title}</h4>
+                <p>Rs.${item.price}</p>
+                <div class="qty-control">
+                    <button onclick="changeQuantity(${i}, -1)">➖</button>
+                    <span>${item.quantity}</span>
+                    <button onclick="changeQuantity(${i}, 1)">➕</button>
+                </div>
+            </div>
+            <button class="remove-btn" onclick="removeFromCart(${i})">🗑️</button>
+        `;
+        cartContainer.appendChild(div);
+        sum += item.price * item.quantity;
+    });
+
+    total.textContent = sum;
+}
+
+// --- Sidebar Toggle ---
+document.querySelector(".cart-btn").addEventListener("click", () => {
+    document.getElementById("cartSidebar").classList.add("active");
+});
+document.getElementById("closeCart").addEventListener("click", () => {
+    document.getElementById("cartSidebar").classList.remove("active");
+});
+
+updateCartCount();
+renderCartItems();
+
+// --- Load Products ---
+async function loadProducts() {
+    try {
+        const res = await fetch(`${API_BASE}/api/products`);
+        const products = await res.json();
+        displayProducts(products);
+    } catch (err) {
+        console.error("Error loading products:", err);
+    }
+}
+
+// --- Quick View Setup ---
+function setupQuickView(products) {
+    document.querySelectorAll('.btn-outline').forEach((btn, index) => {
+        btn.addEventListener('click', () => {
+            const p = products[index];
+
+            const modal = document.createElement('div');
+            modal.className = 'quickview-modal';
+            modal.innerHTML = `
+                <div class="quickview-card">
+                    <button class="close-view">✖</button>
+                    <img src="${p.img}" alt="${p.title}">
+                    <h2>${p.title}</h2>
+                    <p class="price">Rs.${p.price}</p>
+                    <p class="stock">${p.stock > 0 ? '✅ In Stock' : '❌ Out of Stock'}</p>
+                    <p class="desc">${p.desc || 'No description available.'}</p>
+                    <div class="actions">
+                        <button class="btn btn-primary">Add to Cart</button>
+                        <button class="btn btn-outline">Close</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            modal.querySelector('.close-view').addEventListener('click', () => modal.remove());
             modal.querySelector('.btn-outline').addEventListener('click', () => modal.remove());
             modal.querySelector('.btn-primary').addEventListener('click', () => {
                 addToCart(p);
@@ -250,6 +367,7 @@ function setupQuickView(products) {
     });
 }
 
+// --- Display Products with Badges ---
 function displayProducts(products) {
     const grid = document.createElement("div");
     grid.className = "grid";
@@ -267,7 +385,7 @@ function displayProducts(products) {
             <h3>${p.title}</h3>
             <div class="meta">
                 <div class="price">Rs.${p.price}</div>
-                <div class="stock">${p.stock > 0 ? 'In Stock' : 'Out of Stock'}</div>
+                <div class="stock ${p.stock > 0 ? 'in' : 'out'}">${p.stock > 0 ? 'In Stock' : 'Out of Stock'}</div>
             </div>
             <div class="actions">
                 <button class="btn btn-primary add-cart-btn">Add to Cart</button>
@@ -306,7 +424,7 @@ categoryItems.forEach(item => {
     });
 });
 
-// --- Search ---
+// --- Search Filter ---
 const searchInput = document.querySelector('.search input');
 function attachSearchListener() {
     const allProducts = document.querySelectorAll('.card');
@@ -391,21 +509,54 @@ document.querySelector(".cart-footer .checkout-btn").addEventListener("click", (
         `;
         document.body.appendChild(popup);
 
+        // --- Fix 1: WhatsApp number sanitization ---
+        const sanitizedContact = contact.replace(/\D/g, '');
+
         const msg = encodeURIComponent(
             \`Hello ${name}! 👋 Your order (${orderId}) has been placed successfully.\n\nTotal: Rs.${total}\nAddress: ${address}\nThank you for shopping at ONLINETRADERZ!\`
         );
-        window.open(\`https://wa.me/${contact}?text=${msg}\`, "_blank");
+        window.open(`https://wa.me/${sanitizedContact}?text=${msg}`, "_blank");
+
+        // --- Fix 2: Countdown timer for redirect ---
+        let countdown = 10;
+        const countdownEl = popup.querySelector("#countdown");
+        const interval = setInterval(() => {
+            countdown--;
+            countdownEl.textContent = countdown;
+            if (countdown <= 0) clearInterval(interval);
+        }, 1000);
 
         setTimeout(() => {
             popup.remove();
             localStorage.removeItem("cart");
             window.location.href = "index.html";
-        }, 5000);
+        }, 10000);
     });
 });
-          </script>
 
-  
+// --- Fix 3: Prevent adding out-of-stock items ---
+document.addEventListener('click', e => {
+    if (e.target.classList.contains('add-cart-btn')) {
+        const card = e.target.closest('.card');
+        const stockEl = card.querySelector('.stock');
+        if (stockEl && stockEl.classList.contains('out')) {
+            alert('Sorry, this item is out of stock!');
+            e.stopPropagation();
+        }
+    }
+});
+
+// --- Fix 4: Theme toggle ---
+const themeBtn = document.querySelector('.theme-toggle');
+themeBtn.addEventListener('click', () => {
+    document.body.classList.toggle('theme-dark');
+    document.body.classList.toggle('theme-grey');
+});
+
+// --- Fix 5: Ensure cart persistence across reload ---
+window.addEventListener('beforeunload', saveCart);
+
+</script>
 
 </body>   
 </html>
