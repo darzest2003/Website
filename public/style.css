@@ -609,3 +609,39 @@ img {
     opacity: 1;
   }
 }
+/* =========================
+   CHECKOUT FORM STYLES
+========================= */
+.checkout-form h2 {
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.checkout-form label {
+  font-weight: 600;
+  margin-top: 10px;
+  display: block;
+}
+
+.checkout-form input,
+.checkout-form textarea,
+.checkout-form select {
+  width: 100%;
+  padding: 12px;
+  margin-top: 6px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+}
+
+.checkout-form textarea {
+  resize: none;
+  height: 90px;
+}
+
+.checkout-form input:focus,
+.checkout-form textarea:focus,
+.checkout-form select:focus {
+  outline: none;
+  border-color: #ff6a00;
+}
