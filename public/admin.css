@@ -1,192 +1,187 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OnlineTraderz Admin</title>
+* === Admin Dashboard Style (Apple Store Inspired Light Blue Theme) === */
+:root {
+  --bg: linear-gradient(135deg, #e9f2ff 0%, #f5f9ff 100%);
+  --card: #ffffff;
+  --text: #1a1a1a;
+  --accent: #007aff; /* Apple-style blue */
+  --sidebar: #f0f4ff;
+  --sidebar-text: #222;
+  --shadow: rgba(0, 0, 0, 0.08);
+}
 
-<link rel="stylesheet" href="admin.css">
+body.dark {
+  --bg: #101010;
+  --card: #1c1c1e;
+  --text: #f5f5f7;
+  --accent: #0a84ff;
+  --sidebar: #1c1c1e;
+  --sidebar-text: #ccc;
+  --shadow: rgba(255, 255, 255, 0.05);
+}
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-</head>
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  min-height: 100vh;
+  overflow-x: hidden;
+  transition: background 0.4s ease, color 0.4s ease;
+}
 
-<body>
+/* Sidebar */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: -260px;
+  width: 240px;
+  height: 100vh;
+  background: var(--sidebar);
+  color: var(--sidebar-text);
+  display: flex;
+  flex-direction: column;
+  padding: 15px;
+  transition: left 0.3s ease;
+  z-index: 1000;
+  box-shadow: 2px 0 10px var(--shadow);
+  border-right: 1px solid rgba(0, 0, 0, 0.05);
+}
 
-<button id="menuBtn">☰</button>
+.sidebar.open {
+  left: 0;
+}
 
-<aside id="sidebar">
-  <h2>OnlineTraderz</h2>
-  <button class="nav active" data-tab="dashboard">Dashboard</button>
-  <button class="nav" data-tab="products">Products</button>
-  <button class="nav" data-tab="orders">Orders</button>
-  <button class="nav" data-tab="settings">Settings</button>
-</aside>
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  margin-bottom: 15px;
+}
 
-<main>
-  <!-- DASHBOARD -->
-  <section id="dashboard" class="tab show">
-    <div class="cards">
-      <div class="card"><h3 id="pCount">0</h3><p>Products</p></div>
-      <div class="card"><h3 id="oCount">0</h3><p>Orders</p></div>
-      <div class="card"><h3 id="revenue">Rs.0</h3><p>Revenue</p></div>
-    </div>
-    <canvas id="salesChart"></canvas>
-  </section>
+.logo {
+  font-size: 1.2em;
+  font-weight: 600;
+  color: var(--accent);
+}
 
-  <!-- PRODUCTS -->
-  <section id="products" class="tab">
-    <h2>Add Product</h2>
+.close-sidebar {
+  background: none;
+  border: none;
+  color: #333;
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.2s;
+}
+.close-sidebar:hover {
+  color: #ff3b30;
+}
 
-    <form id="productForm">
-      <input required placeholder="Product Title" id="title">
-      <input required type="number" placeholder="Price" id="price">
-      <input required type="number" placeholder="Stock" id="stock">
+.nav-btn {
+  background: none;
+  border: none;
+  color: var(--sidebar-text);
+  text-align: left;
+  padding: 10px;
+  font-size: 1em;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: background 0.3s, transform 0.2s;
+}
+.nav-btn:hover,
+.nav-btn.active {
+  background: var(--accent);
+  color: #fff;
+  transform: scale(1.03);
+}
 
-      <input type="file" id="images" multiple accept="image/*" capture="environment">
-      <button>Add Product</button>
-    </form>
+.theme-toggle {
+  margin-top: 15px;
+  font-size: 0.9em;
+}
 
-    <div id="productList"></div>
-  </section>
+.logout {
+  margin-top: auto;
+  background: #ff3b30;
+  border: none;
+  padding: 10px;
+  color: white;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.2s;
+}
+.logout:hover {
+  background: #e02e23;
+  transform: scale(1.03);
+}
 
-  <!-- ORDERS -->
-  <section id="orders" class="tab">
-    <h2>Orders</h2>
-    <div id="orderList"></div>
-  </section>
+/* Menu toggle button (☰) */
+.menu-toggle {
+  position: fixed;
+  top: 15px;
+  left: 15px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 10px 12px;
+  font-size: 22px;
+  border-radius: 12px;
+  cursor: pointer;
+  z-index: 1100;
+  display: none;
+  box-shadow: 0 3px 6px var(--shadow);
+}
+.menu-toggle:hover {
+  opacity: 0.9;
+}
 
-  <!-- SETTINGS -->
-  <section id="settings" class="tab">
-    <p><b>Shipper:</b> Faris Dar</p>
-    <p><b>Contact:</b> 03444318078</p>
-    <p><b>Email:</b> farisdaar107@gmail.com</p>
-  </section>
-</main>
+/* Overlay background when sidebar open */
+.sidebar.open::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 240px;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.25);
+  z-index: -1;
+}
 
-<canvas id="barcode" hidden></canvas>
-
-<script>
-/* ------------------ STORAGE ------------------ */
-let products = JSON.parse(localStorage.getItem("products")) || [];
-let orders = JSON.parse(localStorage.getItem("orders")) || [];
-
-/* ------------------ NAV ------------------ */
-document.querySelectorAll(".nav").forEach(btn=>{
-  btn.onclick=()=>{
-    document.querySelectorAll(".nav").forEach(b=>b.classList.remove("active"));
-    btn.classList.add("active");
-    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("show"));
-    document.getElementById(btn.dataset.tab).classList.add("show");
-    sidebar.classList.remove("open");
+/* Main content */
+main {
+  flex: 1;
+  padding: 25px;
+  margin-left: 240px;
+  transition: margin-left 0.3s ease;
+}
+@media (max-width: 991px) {
+  main {
+    margin-left: 0;
+    padding-top: 70px;
   }
-});
-
-menuBtn.onclick=()=>sidebar.classList.toggle("open");
-
-/* ------------------ PRODUCTS ------------------ */
-productForm.onsubmit=e=>{
-  e.preventDefault();
-
-  let imgs=[];
-  [...images.files].forEach(f=>{
-    let r=new FileReader();
-    r.onload=()=>{ imgs.push(r.result); save(); }
-    r.readAsDataURL(f);
-  });
-
-  function save(){
-    if(imgs.length!==images.files.length) return;
-    products.push({
-      id:Date.now(),
-      title:title.value,
-      price:+price.value,
-      stock:+stock.value,
-      imgs
-    });
-    localStorage.setItem("products",JSON.stringify(products));
-    productForm.reset();
-    renderProducts();
-    updateStats();
+  .menu-toggle {
+    display: block;
   }
-};
-
-function renderProducts(){
-  productList.innerHTML="";
-  products.forEach(p=>{
-    productList.innerHTML+=`
-      <div class="item">
-        <img src="${p.imgs[0]}">
-        <div>
-          <b>${p.title}</b><br>
-          Rs.${p.price} | Stock: ${p.stock}
-        </div>
-      </div>`;
-  });
 }
 
-/* ------------------ ORDERS ------------------ */
-function renderOrders(){
-  orderList.innerHTML="";
-  orders.forEach((o,i)=>{
-    orderList.innerHTML+=`
-    <div class="item">
-      <b>#${i+1} ${o.product}</b>
-      <p>${o.name} | ${o.contact}</p>
-      <button onclick="downloadLabel(${i})">Download Label</button>
-    </div>`;
-  });
+/* Sections */
+.section {
+  display: none;
+  animation: fadeIn 0.3s ease;
+}
+.section.visible {
+  display: block;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* ------------------ SHIPPING LABEL ------------------ */
-function downloadLabel(i){
-  const o=orders[i];
-  const {jsPDF}=window.jspdf;
-  const pdf=new jsPDF();
+h1 {
+  margin-bottom: 20px;
+  font-size: 1.6em;
+  font-weight: 600;
 
-  JsBarcode(barcode,o.contact,{displayValue:true});
-
-  pdf.text("SHIPPING LABEL",70,15);
-  pdf.rect(10,20,190,120);
-
-  pdf.text(`Product: ${o.product}`,15,30);
-  pdf.text(`Name: ${o.name}`,15,40);
-  pdf.text(`Contact: ${o.contact}`,15,50);
-  pdf.text(`Email: ${o.email}`,15,60);
-  pdf.text(`Address: ${o.address}`,15,70);
-
-  pdf.text("Shipper: Faris Dar",15,95);
-  pdf.text("Contact: 03444318078",15,105);
-  pdf.text("Email: farisdaar107@gmail.com",15,115);
-
-  pdf.addImage(barcode.toDataURL(),"PNG",120,40,60,20);
-  pdf.save(`Order_${i+1}.pdf`);
-}
-
-/* ------------------ DASHBOARD ------------------ */
-function updateStats(){
-  pCount.innerText=products.length;
-  oCount.innerText=orders.length;
-  revenue.innerText="Rs."+orders.reduce((t,o)=>t+(+o.total||0),0);
-}
-
-function chart(){
-  new Chart(salesChart,{
-    type:"line",
-    data:{
-      labels:orders.map((_,i)=>i+1),
-      datasets:[{label:"Sales",data:orders.map(o=>o.total||0)}]
-    }
-  });
-}
-
-/* ------------------ INIT ------------------ */
-renderProducts();
-renderOrders();
-updateStats();
-chart();
-</script>
-
-</body>
-</html>
