@@ -247,6 +247,38 @@ function setupQuickView(products) {
     localStorage.setItem("cart", JSON.stringify(cart));
     updateCartCount();
     renderCartItems();
+    <script>
+function openCheckout() {
+  document.getElementById("checkoutModal").style.display = "flex";
+}
+
+function closeCheckout() {
+  document.getElementById("checkoutModal").style.display = "none";
+}
+
+document.querySelector(".checkout-btn").addEventListener("click", openCheckout);
+
+document.getElementById("orderForm").addEventListener("submit", function(e) {
+  e.preventDefault();
+
+  document.getElementById("checkoutModal").style.display = "none";
+  document.getElementById("thankPopup").style.display = "flex";
+
+  let time = 10;
+  const countdown = document.getElementById("countdown");
+
+  const timer = setInterval(() => {
+    time--;
+    countdown.textContent = time;
+
+    if (time === 0) {
+      clearInterval(timer);
+      localStorage.removeItem("cart");
+      window.location.href = "index.html";
+    }
+  }, 1000);
+});
+</script>
   }
 
   function addToCart(product) {
