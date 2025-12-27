@@ -322,64 +322,7 @@ function displayProducts(products) {
     document.getElementById("cartSidebar").classList.remove("active");
   });
 
-  // 🧾 Checkout Form Modal (Corrected Integration)
-  document.querySelector(".checkout-btn").addEventListener("click", () => {
-    const modal = document.createElement("div");
-    modal.className = "checkout-modal";
-    modal.innerHTML = 
-<div class="checkout-modal" id="checkoutModal" style="display:none;">
-  <div class="checkout-form">
 
-    <h2>🛒 Complete Your Order</h2>
-    <p class="checkout-sub">Please fill the details below</p>
-
-    <form id="orderForm">
-
-      <div class="form-group">
-        <label>Full Name</label>
-        <input type="text" name="name" required placeholder="John Doe">
-      </div>
-
-      <div class="form-group">
-        <label>Phone Number</label>
-        <input type="tel" name="phone" required placeholder="03XXXXXXXXX">
-      </div>
-
-      <div class="form-group">
-        <label>Email (optional)</label>
-        <input type="email" name="email" placeholder="example@email.com">
-      </div>
-
-      <div class="form-group">
-        <label>Delivery Address</label>
-        <textarea name="address" required placeholder="House no, street, city"></textarea>
-      </div>
-
-      <div class="form-group">
-        <label>Payment Method</label>
-        <select name="payment" required>
-          <option value="">Select payment method</option>
-          <option value="cod">Cash on Delivery</option>
-          <option value="bank">Bank Transfer</option>
-          <option value="easypaisa">EasyPaisa</option>
-          <option value="jazzcash">JazzCash</option>
-        </select>
-      </div>
-
-      <button type="submit" class="checkout-btn">Place Order</button>
-    </form>
-
-    <button class="btn btn-outline" onclick="closeCheckout()">Cancel</button>
-  </div>
-</div>
-    `;
-
-    document.body.appendChild(modal);
-
-    // close button
-    modal.querySelector(".close-checkout").addEventListener("click", () => {
-      modal.remove();
-    });
 
     // submit button
     modal.querySelector("#submitOrder").addEventListener("click", () => {
