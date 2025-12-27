@@ -323,52 +323,39 @@ function displayProducts(products) {
   document.getElementById("closeCart").addEventListener("click", () => {
     document.getElementById("cartSidebar").classList.remove("active");
   });
-
-
-document.querySelector(".checkout-btn").addEventListener("click", () => {
-    // Create modal container
+<script>
+document.querySelector(".cart-footer .checkout-btn").addEventListener("click", () => {
+    // Create overlay + modal
     const modal = document.createElement("div");
-    modal.className = "checkout-modal-overlay"; // overlay for background dim
+    modal.className = "checkout-modal-overlay";
     modal.innerHTML = `
       <div class="checkout-modal" id="checkoutModal">
         <div class="checkout-form">
           <h2>🛒 Complete Your Order</h2>
-          <p class="checkout-sub">Please fill the details below</p>
-
           <form id="orderForm">
-            <div class="form-group">
-              <label>Full Name</label>
-              <input type="text" id="custName" required placeholder="John Doe">
-            </div>
+            <label>Full Name</label>
+            <input type="text" id="custName" required placeholder="John Doe">
 
-            <div class="form-group">
-              <label>Phone Number</label>
-              <input type="tel" id="custContact" required placeholder="03XXXXXXXXX">
-            </div>
+            <label>Phone Number</label>
+            <input type="tel" id="custContact" required placeholder="03XXXXXXXXX">
 
-            <div class="form-group">
-              <label>Email (optional)</label>
-              <input type="email" id="custEmail" placeholder="example@email.com">
-            </div>
+            <label>Email (optional)</label>
+            <input type="email" id="custEmail" placeholder="example@email.com">
 
-            <div class="form-group">
-              <label>Delivery Address</label>
-              <textarea id="custAddress" required placeholder="House no, street, city"></textarea>
-            </div>
+            <label>Delivery Address</label>
+            <textarea id="custAddress" required placeholder="House no, street, city"></textarea>
 
-            <div class="form-group">
-              <label>Payment Method</label>
-              <select id="custPayment" required>
-                <option value="">Select payment method</option>
-                <option value="cod">Cash on Delivery</option>
-                <option value="bank">Bank Transfer</option>
-                <option value="easypaisa">EasyPaisa</option>
-                <option value="jazzcash">JazzCash</option>
-              </select>
-            </div>
+            <label>Payment Method</label>
+            <select id="custPayment" required>
+              <option value="">Select payment method</option>
+              <option value="cod">Cash on Delivery</option>
+              <option value="bank">Bank Transfer</option>
+              <option value="easypaisa">EasyPaisa</option>
+              <option value="jazzcash">JazzCash</option>
+            </select>
 
-            <button type="button" id="submitOrder" class="checkout-btn">Place Order</button>
-            <button type="button" id="closeCheckout" class="btn btn-outline">Cancel</button>
+            <button type="button" id="submitOrder">Place Order</button>
+            <button type="button" id="closeCheckout">Cancel</button>
           </form>
         </div>
       </div>
@@ -381,10 +368,10 @@ document.querySelector(".checkout-btn").addEventListener("click", () => {
 
     // Submit order
     modal.querySelector("#submitOrder").addEventListener("click", () => {
-        const name = document.getElementById("custName").value.trim();
-        const email = document.getElementById("custEmail").value.trim();
-        const contact = document.getElementById("custContact").value.trim();
-        const address = document.getElementById("custAddress").value.trim();
+        const name = modal.querySelector("#custName").value.trim();
+        const contact = modal.querySelector("#custContact").value.trim();
+        const email = modal.querySelector("#custEmail").value.trim();
+        const address = modal.querySelector("#custAddress").value.trim();
 
         if (!name || !contact || !address) {
             alert("Please fill all required details");
@@ -396,7 +383,6 @@ document.querySelector(".checkout-btn").addEventListener("click", () => {
 
         modal.remove();
 
-        // Thank you popup
         const popup = document.createElement("div");
         popup.className = "thank-popup";
         popup.innerHTML = `
@@ -420,6 +406,9 @@ document.querySelector(".checkout-btn").addEventListener("click", () => {
         }, 5000);
     });
 });
+</script>
+
+
 
 
     // submit button
