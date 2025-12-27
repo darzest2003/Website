@@ -385,6 +385,87 @@ function displayProducts(products) {
 
   attachSearchListener();
   </script>
+<script>
+// Checkout modal and order submission
+document.querySelector(".cart-footer .checkout-btn").addEventListener("click", () => {
+    const modal = document.createElement("div");
+    modal.className = "checkout-modal-overlay";
+    modal.innerHTML = `
+      <div class="checkout-modal" id="checkoutModal">
+        <div class="checkout-form">
+          <h2>🛒 Complete Your Order</h2>
+          <form id="orderForm">
+            <label>Full Name</label>
+            <input type="text" id="custName" required placeholder="John Doe">
 
+            <label>Phone Number</label>
+            <input type="tel" id="custContact" required placeholder="03XXXXXXXXX">
+
+            <label>Email (optional)</label>
+            <input type="email" id="custEmail" placeholder="example@email.com">
+
+            <label>Delivery Address</label>
+            <textarea id="custAddress" required placeholder="House no, street, city"></textarea>
+
+            <label>Payment Method</label>
+            <select id="custPayment" required>
+              <option value="">Select payment method</option>
+              <option value="cod">Cash on Delivery</option>
+              <option value="bank">Bank Transfer</option>
+              <option value="easypaisa">EasyPaisa</option>
+              <option value="jazzcash">JazzCash</option>
+            </select>
+
+            <button type="button" id="submitOrder">Place Order</button>
+            <button type="button" id="closeCheckout">Cancel</button>
+          </form>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    modal.querySelector("#closeCheckout").addEventListener("click", () => modal.remove());
+
+    modal.querySelector("#submitOrder").addEventListener("click", () => {
+        const name = modal.querySelector("#custName").value.trim();
+        const contact = modal.querySelector("#custContact").value.trim();
+        const email = modal.querySelector("#custEmail").value.trim();
+        const address = modal.querySelector("#custAddress").value.trim();
+
+        if (!name || !contact || !address) {
+            alert("Please fill all required details");
+            return;
+        }
+
+        const orderId = "OZ" + Math.floor(100000 + Math.random() * 900000);
+        const total = document.getElementById("cartTotal").textContent;
+
+        modal.remove();
+
+        const popup = document.createElement("div");
+        popup.className = "thank-popup";
+        popup.innerHTML = `
+          <div class="thank-card">
+            <h2>🎉 Order Successful!</h2>
+            <p>Your order has been placed successfully.</p>
+            <p class="redirect-text">Redirecting to home page in <span id="countdown">10</span> seconds...</p>
+          </div>
+        `;
+        document.body.appendChild(popup);
+
+        const msg = encodeURIComponent(
+            \`Hello ${name}! 👋 Your order (${orderId}) has been placed successfully.\n\nTotal: Rs.${total}\nAddress: ${address}\nThank you for shopping at ONLINETRADERZ!\`
+        );
+        window.open(\`https://wa.me/${contact}?text=${msg}\`, "_blank");
+
+        setTimeout(() => {
+            popup.remove();
+            localStorage.removeItem("cart");
+            window.location.href = "index.html";
+        }, 5000);
+    });
+});
+</script>
 </body>   
 </html>
