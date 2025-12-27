@@ -110,132 +110,9 @@
   <!-- Floating WhatsApp Button -->
   <a href="https://wa.me/923444318078" class="whatsapp-float" target="_blank" aria-label="Chat on WhatsApp">
     <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" />
-  </a>
-
-  <!-- Product Loader Script -->
-  <script>
-  const API_BASE = "https://cppbackened.onrender.com";
-
-  async function loadProducts() {
-    try {
-      const res = await fetch(`${API_BASE}/api/products`);
-      const products = await res.json();
-      displayProducts(products);
-    } catch (err) {
-      console.error("Error loading products:", err);
-    }
-  }
-
-  function displayProducts(products) {
-    const grid = document.createElement("div");
-    grid.className = "grid";
   
-    products.forEach(p => {
-      const card = document.createElement("div");
-      card.className = "card";
-      card.innerHTML = `
-        <img src="${p.img}" alt="${p.title}">
-        <h3>${p.title}</h3>
-        <div class="meta">
-          <div class="price">Rs.${p.price}</div>
-          <div class="stock">${p.stock > 0 ? 'In Stock' : 'Out of Stock'}</div>
-        </div>
-        <div class="actions">
-          <button class="btn btn-primary add-cart-btn">Add to Cart</button>
-          <button class="btn btn-outline">View</button>
-        </div>
-      `;
-      grid.appendChild(card);
 
-      card.querySelector(".add-cart-btn").addEventListener("click", () => {
-        addToCart(p);
-      });
-    });
   
-    document.querySelector(".page").appendChild(grid);
-  }
-
-  loadProducts();
-  </script>
-
-  <script>
-function setupQuickView(products) {
-  document.querySelectorAll('.btn-outline').forEach((btn, index) => {
-    btn.addEventListener('click', () => {
-      const p = products[index];
-
-      // Create modal
-      const modal = document.createElement('div');
-      modal.className = 'quickview-modal';
-      modal.innerHTML = `
-        <div class="quickview-card">
-          <button class="close-view">✖</button>
-          <img src="${p.img}" alt="${p.title}">
-          <h2>${p.title}</h2>
-          <p class="price">Rs.${p.price}</p>
-          <p class="stock">${p.stock > 0 ? '✅ In Stock' : '❌ Out of Stock'}</p>
-          <p class="desc">${p.desc || 'No description available.'}</p>
-          <div class="actions">
-            <button class="btn btn-primary">Add to Cart</button>
-            <button class="btn btn-outline">Close</button>
-          </div>
-        </div>
-      `;
-
-      document.body.appendChild(modal);
-
-      // Close modal
-      modal.querySelector('.close-view').addEventListener('click', () => modal.remove());
-      modal.querySelector('.btn-outline').addEventListener('click', () => modal.remove());
-
-      // Add to cart button
-      modal.querySelector('.btn-primary').addEventListener('click', () => {
-        addToCart(p);
-        modal.remove();
-      });
-    });
-  });
-}
-function displayProducts(products) {
-  const grid = document.createElement("div");
-  grid.className = "grid";
-
-  products.forEach(p => {
-    const card = document.createElement("div");
-    card.className = "card";
-    card.setAttribute("data-category", p.category || "all");
-
-    // Add badge if product has tag
-    let badgeHTML = "";
-    if (p.badge) { // p.badge can be "sale", "new", or "hot"
-      badgeHTML = `<div class="badge ${p.badge}">${p.badge}</div>`;
-    }
-
-    card.innerHTML = `
-      ${badgeHTML}
-      <img src="${p.img}" alt="${p.title}">
-      <h3>${p.title}</h3>
-      <div class="meta">
-        <div class="price">Rs.${p.price}</div>
-        <div class="stock">${p.stock > 0 ? 'In Stock' : 'Out of Stock'}</div>
-      </div>
-      <div class="actions">
-        <button class="btn btn-primary add-cart-btn">Add to Cart</button>
-        <button class="btn btn-outline">View</button>
-      </div>
-    `;
-
-    grid.appendChild(card);
-
-    card.querySelector(".add-cart-btn").addEventListener("click", () => {
-      addToCart(p);
-    });
-  });
-
-  document.querySelector(".page").appendChild(grid);
-  setupQuickView(products);
-}
-  </script>
 
   <!-- 🛒 Cart Sidebar -->
   <div class="cart-sidebar" id="cartSidebar">
@@ -250,143 +127,203 @@ function displayProducts(products) {
     </div>
   </div>
 
-  <!-- 🛒 Cart Management Script -->
-  <script>
-  let cart = JSON.parse(localStorage.getItem("cart")) || [];
+<script>
+const API_BASE = "https://cppbackened.onrender.com";
 
-  function updateCartCount() {
+// --- Cart ---
+let cart = JSON.parse(localStorage.getItem("cart")) || [];
+
+function updateCartCount() {
     document.querySelector(".cart-count").textContent = cart.length;
-  }
+}
 
-  function saveCart() {
+function saveCart() {
     localStorage.setItem("cart", JSON.stringify(cart));
     updateCartCount();
     renderCartItems();
-  }
+}
 
-  function addToCart(product) {
+function addToCart(product) {
     const existing = cart.find(item => item.id === product.id);
     if (existing) {
-      existing.quantity += 1;
+        existing.quantity += 1;
     } else {
-      product.quantity = 1;
-      cart.push(product);
+        product.quantity = 1;
+        cart.push(product);
     }
     saveCart();
     alert(`${product.title} added to cart!`);
-  }
+}
 
-  function changeQuantity(index, delta) {
+function changeQuantity(index, delta) {
     cart[index].quantity += delta;
     if (cart[index].quantity <= 0) cart.splice(index, 1);
     saveCart();
-  }
+}
 
-  function renderCartItems() {
+function removeFromCart(index) {
+    cart.splice(index, 1);
+    saveCart();
+}
+
+function renderCartItems() {
     const cartContainer = document.getElementById("cartItems");
     const total = document.getElementById("cartTotal");
     cartContainer.innerHTML = "";
     let sum = 0;
-    
+
     cart.forEach((item, i) => {
-      const div = document.createElement("div");
-      div.className = "cart-item";
-      div.innerHTML = `
-        <img src="${item.img}" alt="${item.title}">
-        <div class="cart-item-details">
-          <h4>${item.title}</h4>
-          <p>Rs.${item.price}</p>
-          <div class="qty-control">
-            <button onclick="changeQuantity(${i}, -1)">➖</button>
-            <span>${item.quantity}</span>
-            <button onclick="changeQuantity(${i}, 1)">➕</button>
-          </div>
-        </div>
-        <button class="remove-btn" onclick="removeFromCart(${i})">🗑️</button>
-      `;
-      cartContainer.appendChild(div);
-      sum += item.price * item.quantity;
+        const div = document.createElement("div");
+        div.className = "cart-item";
+        div.innerHTML = `
+            <img src="${item.img}" alt="${item.title}">
+            <div class="cart-item-details">
+                <h4>${item.title}</h4>
+                <p>Rs.${item.price}</p>
+                <div class="qty-control">
+                    <button onclick="changeQuantity(${i}, -1)">➖</button>
+                    <span>${item.quantity}</span>
+                    <button onclick="changeQuantity(${i}, 1)">➕</button>
+                </div>
+            </div>
+            <button class="remove-btn" onclick="removeFromCart(${i})">🗑️</button>
+        `;
+        cartContainer.appendChild(div);
+        sum += item.price * item.quantity;
     });
 
     total.textContent = sum;
-  }
+}
 
-  function removeFromCart(index) {
-    cart.splice(index, 1);
-    saveCart();
-  }
-
-  document.querySelector(".cart-btn").addEventListener("click", () => {
+document.querySelector(".cart-btn").addEventListener("click", () => {
     document.getElementById("cartSidebar").classList.add("active");
-  });
-
-  document.getElementById("closeCart").addEventListener("click", () => {
+});
+document.getElementById("closeCart").addEventListener("click", () => {
     document.getElementById("cartSidebar").classList.remove("active");
-  });
+});
 
+updateCartCount();
+renderCartItems();
 
-  updateCartCount();
-  renderCartItems();
-  </script>
-
-  <script>
-  const menuToggle = document.getElementById('menuToggle');
-  const sidebar = document.getElementById('sidebar');
-  const closeSidebar = document.getElementById('closeSidebar');
-  const categoryItems = document.querySelectorAll('.category-list li');
-  const productCards = document.querySelectorAll('.card');
-
-  menuToggle.addEventListener('click', () => {
-    sidebar.classList.add('active');
-  });
-
-  closeSidebar.addEventListener('click', () => {
-    sidebar.classList.remove('active');
-  });
-
-  categoryItems.forEach(item => {
-    item.addEventListener('click', () => {
-      const selected = item.getAttribute('data-category');
-
-      // Filter products by category
-      productCards.forEach(card => {
-        const category = card.getAttribute('data-category');
-        card.style.display = (selected === category || selected === 'all') ? 'flex' : 'none';
-      });
-
-      sidebar.classList.remove('active');
-    });
-  });
-  </script>
-
-  <script>
-  // 🔍 Search functionality
-  const searchInput = document.querySelector('.search input');
-
-  // Wait for products to load
-  function attachSearchListener() {
-    const allProducts = document.querySelectorAll('.card');
-
-    if (!allProducts.length) {
-      // Retry until products are loaded
-      setTimeout(attachSearchListener, 500);
-      return;
+// --- Load Products ---
+async function loadProducts() {
+    try {
+        const res = await fetch(`${API_BASE}/api/products`);
+        const products = await res.json();
+        displayProducts(products);
+    } catch (err) {
+        console.error("Error loading products:", err);
     }
+}
 
-    searchInput.addEventListener('input', () => {
-      const query = searchInput.value.trim().toLowerCase();
+function setupQuickView(products) {
+    document.querySelectorAll('.btn-outline').forEach((btn, index) => {
+        btn.addEventListener('click', () => {
+            const p = products[index];
 
-      allProducts.forEach(card => {
-        const title = card.querySelector('h3').textContent.toLowerCase();
-        card.style.display = title.includes(query) ? 'flex' : 'none';
-      });
+            const modal = document.createElement('div');
+            modal.className = 'quickview-modal';
+            modal.innerHTML = `
+                <div class="quickview-card">
+                    <button class="close-view">✖</button>
+                    <img src="${p.img}" alt="${p.title}">
+                    <h2>${p.title}</h2>
+                    <p class="price">Rs.${p.price}</p>
+                    <p class="stock">${p.stock > 0 ? '✅ In Stock' : '❌ Out of Stock'}</p>
+                    <p class="desc">${p.desc || 'No description available.'}</p>
+                    <div class="actions">
+                        <button class="btn btn-primary">Add to Cart</button>
+                        <button class="btn btn-outline">Close</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            modal.querySelector('.close-view').addEventListener('click', () => modal.remove());
+            modal.querySelector('.btn-outline').addEventListener('click', () => modal.remove());
+            modal.querySelector('.btn-primary').addEventListener('click', () => {
+                addToCart(p);
+                modal.remove();
+            });
+        });
     });
-  }
+}
 
-  attachSearchListener();
-  </script>
-<script>
-// Checkout modal and order submission
+function displayProducts(products) {
+    const grid = document.createElement("div");
+    grid.className = "grid";
+
+    products.forEach(p => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.setAttribute("data-category", p.category || "all");
+
+        let badgeHTML = p.badge ? `<div class="badge ${p.badge}">${p.badge}</div>` : "";
+
+        card.innerHTML = `
+            ${badgeHTML}
+            <img src="${p.img}" alt="${p.title}">
+            <h3>${p.title}</h3>
+            <div class="meta">
+                <div class="price">Rs.${p.price}</div>
+                <div class="stock">${p.stock > 0 ? 'In Stock' : 'Out of Stock'}</div>
+            </div>
+            <div class="actions">
+                <button class="btn btn-primary add-cart-btn">Add to Cart</button>
+                <button class="btn btn-outline">View</button>
+            </div>
+        `;
+
+        grid.appendChild(card);
+
+        card.querySelector(".add-cart-btn").addEventListener("click", () => addToCart(p));
+    });
+
+    document.querySelector(".page").appendChild(grid);
+    setupQuickView(products);
+}
+
+loadProducts();
+
+// --- Sidebar & Category Filter ---
+const menuToggle = document.getElementById('menuToggle');
+const sidebar = document.getElementById('sidebar');
+const closeSidebar = document.getElementById('closeSidebar');
+const categoryItems = document.querySelectorAll('.category-list li');
+
+menuToggle.addEventListener('click', () => sidebar.classList.add('active'));
+closeSidebar.addEventListener('click', () => sidebar.classList.remove('active'));
+
+categoryItems.forEach(item => {
+    item.addEventListener('click', () => {
+        const selected = item.getAttribute('data-category');
+        document.querySelectorAll('.card').forEach(card => {
+            const category = card.getAttribute('data-category');
+            card.style.display = (selected === category || selected === 'all') ? 'flex' : 'none';
+        });
+        sidebar.classList.remove('active');
+    });
+});
+
+// --- Search ---
+const searchInput = document.querySelector('.search input');
+function attachSearchListener() {
+    const allProducts = document.querySelectorAll('.card');
+    if (!allProducts.length) {
+        setTimeout(attachSearchListener, 500);
+        return;
+    }
+    searchInput.addEventListener('input', () => {
+        const query = searchInput.value.trim().toLowerCase();
+        allProducts.forEach(card => {
+            const title = card.querySelector('h3').textContent.toLowerCase();
+            card.style.display = title.includes(query) ? 'flex' : 'none';
+        });
+    });
+}
+attachSearchListener();
+
+// --- Checkout Modal & Order Submission ---
 document.querySelector(".cart-footer .checkout-btn").addEventListener("click", () => {
     const modal = document.createElement("div");
     modal.className = "checkout-modal-overlay";
@@ -422,7 +359,6 @@ document.querySelector(".cart-footer .checkout-btn").addEventListener("click", (
         </div>
       </div>
     `;
-
     document.body.appendChild(modal);
 
     modal.querySelector("#closeCheckout").addEventListener("click", () => modal.remove());
@@ -466,6 +402,9 @@ document.querySelector(".cart-footer .checkout-btn").addEventListener("click", (
         }, 5000);
     });
 });
-</script>
+          </script>
+
+  
+
 </body>   
 </html>
