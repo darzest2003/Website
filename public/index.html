@@ -324,63 +324,103 @@ function displayProducts(products) {
     document.getElementById("cartSidebar").classList.remove("active");
   });
 
-  // 🧾 Checkout Form Modal (Corrected Integration)
-  document.querySelector(".checkout-btn").addEventListener("click", () => {
+<script>
+document.querySelector(".checkout-btn").addEventListener("click", () => {
+    // Create modal container
     const modal = document.createElement("div");
-    modal.className = "checkout-modal";
+    modal.className = "checkout-modal-overlay"; // overlay for background dim
     modal.innerHTML = `
-<div class="checkout-modal" id="checkoutModal" style="display:none;">
-  <div class="checkout-form">
+      <div class="checkout-modal" id="checkoutModal">
+        <div class="checkout-form">
+          <h2>🛒 Complete Your Order</h2>
+          <p class="checkout-sub">Please fill the details below</p>
 
-    <h2>🛒 Complete Your Order</h2>
-    <p class="checkout-sub">Please fill the details below</p>
+          <form id="orderForm">
+            <div class="form-group">
+              <label>Full Name</label>
+              <input type="text" id="custName" required placeholder="John Doe">
+            </div>
 
-    <form id="orderForm">
+            <div class="form-group">
+              <label>Phone Number</label>
+              <input type="tel" id="custContact" required placeholder="03XXXXXXXXX">
+            </div>
 
-      <div class="form-group">
-        <label>Full Name</label>
-        <input type="text" name="name" required placeholder="John Doe">
+            <div class="form-group">
+              <label>Email (optional)</label>
+              <input type="email" id="custEmail" placeholder="example@email.com">
+            </div>
+
+            <div class="form-group">
+              <label>Delivery Address</label>
+              <textarea id="custAddress" required placeholder="House no, street, city"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>Payment Method</label>
+              <select id="custPayment" required>
+                <option value="">Select payment method</option>
+                <option value="cod">Cash on Delivery</option>
+                <option value="bank">Bank Transfer</option>
+                <option value="easypaisa">EasyPaisa</option>
+                <option value="jazzcash">JazzCash</option>
+              </select>
+            </div>
+
+            <button type="button" id="submitOrder" class="checkout-btn">Place Order</button>
+            <button type="button" id="closeCheckout" class="btn btn-outline">Cancel</button>
+          </form>
+        </div>
       </div>
-
-      <div class="form-group">
-        <label>Phone Number</label>
-        <input type="tel" name="phone" required placeholder="03XXXXXXXXX">
-      </div>
-
-      <div class="form-group">
-        <label>Email (optional)</label>
-        <input type="email" name="email" placeholder="example@email.com">
-      </div>
-
-      <div class="form-group">
-        <label>Delivery Address</label>
-        <textarea name="address" required placeholder="House no, street, city"></textarea>
-      </div>
-
-      <div class="form-group">
-        <label>Payment Method</label>
-        <select name="payment" required>
-          <option value="">Select payment method</option>
-          <option value="cod">Cash on Delivery</option>
-          <option value="bank">Bank Transfer</option>
-          <option value="easypaisa">EasyPaisa</option>
-          <option value="jazzcash">JazzCash</option>
-        </select>
-      </div>
-
-      <button type="submit" class="checkout-btn">Place Order</button>
-    </form>
-
-    <button class="btn btn-outline" onclick="closeCheckout()">Cancel</button>
-  </div>
     `;
 
     document.body.appendChild(modal);
 
-    // close button
-    modal.querySelector(".close-checkout").addEventListener("click", () => {
-      modal.remove();
+    // Close modal
+    modal.querySelector("#closeCheckout").addEventListener("click", () => modal.remove());
+
+    // Submit order
+    modal.querySelector("#submitOrder").addEventListener("click", () => {
+        const name = document.getElementById("custName").value.trim();
+        const email = document.getElementById("custEmail").value.trim();
+        const contact = document.getElementById("custContact").value.trim();
+        const address = document.getElementById("custAddress").value.trim();
+
+        if (!name || !contact || !address) {
+            alert("Please fill all required details");
+            return;
+        }
+
+        const orderId = "OZ" + Math.floor(100000 + Math.random() * 900000);
+        const total = document.getElementById("cartTotal").textContent;
+
+        modal.remove();
+
+        // Thank you popup
+        const popup = document.createElement("div");
+        popup.className = "thank-popup";
+        popup.innerHTML = `
+          <div class="thank-card">
+            <h2>🎉 Order Successful!</h2>
+            <p>Your order has been placed successfully.</p>
+            <p class="redirect-text">Redirecting to home page in <span id="countdown">10</span> seconds...</p>
+          </div>
+        `;
+        document.body.appendChild(popup);
+
+        const msg = encodeURIComponent(
+            \`Hello ${name}! 👋 Your order (${orderId}) has been placed successfully.\n\nTotal: Rs.${total}\nAddress: ${address}\nThank you for shopping at ONLINETRADERZ!\`
+        );
+        window.open(\`https://wa.me/${contact}?text=${msg}\`, "_blank");
+
+        setTimeout(() => {
+            popup.remove();
+            localStorage.removeItem("cart");
+            window.location.href = "index.html";
+        }, 5000);
     });
+});
+</script>
 
     // submit button
     modal.querySelector("#submitOrder").addEventListener("click", () => {
