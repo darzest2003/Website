@@ -413,6 +413,31 @@ function setupQuickView(products) {
 
   attachSearchListener();
   </script>
+  <!-- CHECKOUT MODAL -->
+<div class="checkout-modal" id="checkoutModal" style="display:none;">
+  <div class="checkout-form">
+    <button class="close-checkout" onclick="closeCheckout()">✖</button>
+
+    <h2>🛒 Complete Your Order</h2>
+
+    <form id="orderForm">
+      <input id="custName" type="text" placeholder="Full Name" required>
+      <input id="custContact" type="tel" placeholder="Phone Number" required>
+      <input id="custEmail" type="email" placeholder="Email (optional)">
+      <textarea id="custAddress" placeholder="Delivery Address" required></textarea>
+
+      <button type="submit" class="checkout-btn">Place Order</button>
+    </form>
+  </div>
+</div>
+
+<!-- THANK YOU POPUP -->
+<div class="thank-popup" id="thankPopup" style="display:none;">
+  <div class="thank-card">
+    <h2>🎉 Order Successful!</h2>
+    <p>Redirecting in <span id="countdown">10</span> seconds...</p>
+  </div>
+</div>
 
 </body>   
 </html>
