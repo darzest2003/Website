@@ -590,3 +590,22 @@ img {
   0% { background-position: 100% 0; }
   100% { background-position: -100% 0; }
 }
+/* =========================
+   MODAL ANIMATION
+========================= */
+.quickview-card,
+.checkout-form,
+.thank-card {
+  animation: modalIn 0.35s ease;
+}
+
+@keyframes modalIn {
+  from {
+    transform: translateY(30px) scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
