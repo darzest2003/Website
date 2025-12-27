@@ -1,193 +1,384 @@
-
-<!DOCTYPE html>
+    <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OnlineTraderz Admin</title>
-
-<link rel="stylesheet" href="admin.css">
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard - OnlineTraderz</title>
+  <link rel="stylesheet" href="admin.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .carousel-container { position: relative; width: 100%; height: 100px; overflow: hidden; }
+    .carousel-images { display: flex; transition: transform 0.3s ease; }
+    .carousel-images img { width: 100px; height: 100px; object-fit: cover; margin-right: 5px; }
+    .carousel-btn { position: absolute; top: 35%; background: rgba(0,0,0,0.4); color: white; border: none; padding: 2px 8px; cursor: pointer; font-size: 16px; z-index: 2; }
+    .carousel-btn.left { left: 0; }
+    .carousel-btn.right { right: 0; }
+  </style>
 </head>
-
 <body>
+  
 
-<button id="menuBtn">☰</button>
+  <!-- Mobile toggle button -->
+  <button class="menu-toggle" id="menuToggle">☰</button>
 
-<aside id="sidebar">
-  <h2>OnlineTraderz</h2>
-  <button class="nav active" data-tab="dashboard">Dashboard</button>
-  <button class="nav" data-tab="products">Products</button>
-  <button class="nav" data-tab="orders">Orders</button>
-  <button class="nav" data-tab="settings">Settings</button>
-</aside>
-
-<main>
-  <!-- DASHBOARD -->
-  <section id="dashboard" class="tab show">
-    <div class="cards">
-      <div class="card"><h3 id="pCount">0</h3><p>Products</p></div>
-      <div class="card"><h3 id="oCount">0</h3><p>Orders</p></div>
-      <div class="card"><h3 id="revenue">Rs.0</h3><p>Revenue</p></div>
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">OnlineTraderz Admin</div>
+    <button class="close-sidebar" id="closeSidebar">✖</button>
+  </div>
+  <nav>
+      <button class="nav-btn active" data-section="dashboard">📊 Dashboard</button>
+      <button class="nav-btn" data-section="products">🛍️ Products</button>
+      <button class="nav-btn" data-section="orders">📦 Orders</button>
+      <button class="nav-btn" data-section="settings">⚙️ Settings</button>
+    </nav>
+    <div class="theme-toggle">
+      <label>
+        <input type="checkbox" id="themeSwitcher" />
+        <span>🌙 Dark Mode</span>
+      </label>
     </div>
-    <canvas id="salesChart"></canvas>
-  </section>
+    <button class="logout" onclick="logout()">Logout</button>
+  </aside>
 
-  <!-- PRODUCTS -->
-  <section id="products" class="tab">
-    <h2>Add Product</h2>
+  <!-- Main content -->
+  <main id="main">
+    <!-- Dashboard -->
+    <section id="dashboard" class="section visible">
+      <h1>📊 Analytics Dashboard</h1>
+      <div class="cards">
+        <div class="card"><h2 id="totalProducts">0</h2><p>Total Products</p></div>
+        <div class="card"><h2 id="totalOrders">0</h2><p>Total Orders</p></div>
+        <div class="card"><h2 id="totalRevenue">RS.0</h2><p>Total Revenue</p></div>
+      </div>
+      <div class="chart-container">
+        <canvas id="salesChart"></canvas>
+      </div>
+    </section>
 
-    <form id="productForm">
-      <input required placeholder="Product Title" id="title">
-      <input required type="number" placeholder="Price" id="price">
-      <input required type="number" placeholder="Stock" id="stock">
+    <!-- Products -->
+    <section id="products" class="section">
+      <h1>🛍️ Manage Products</h1>
+      <form id="addProductForm" class="add-form">
+        <input type="text" id="pTitle" placeholder="Title" required />
+        <input type="number" id="pPrice" placeholder="Price" required />
+        <input type="text" id="pImg" placeholder="Image path(s) uploads/...,comma separated" required />
+        <input type="number" id="pStock" placeholder="Stock" required />
+        <button type="submit">Add Product</button>
+      </form>
+      <input type="text" id="productSearch" placeholder="Search product..." class="search" />
+      <div id="productList" class="list"></div>
+    </section>
 
-      <input type="file" id="images" multiple accept="image/*" capture="environment">
-      <button>Add Product</button>
-    </form>
+    <!-- Orders -->
+    <section id="orders" class="section">
+      <h1>📦 Orders</h1>
+      <div class="order-actions">
+        <input type="text" id="orderSearch" placeholder="Search order..." />
+        <button id="exportCSV">Export CSV</button>
+      </div>
+      <div id="orderList" class="list"></div>
+    </section>
 
-    <div id="productList"></div>
-  </section>
+    <!-- Settings -->
+    <section id="settings" class="section">
+      <h1>⚙️ Settings</h1>
+      <p>Admin panel for OnlineTraderz. Data syncs automatically with your backend.</p>
+      <p>Version: <b>2.1 Pro</b></p>
+    </section>
+  </main>
 
-  <!-- ORDERS -->
-  <section id="orders" class="tab">
-    <h2>Orders</h2>
-    <div id="orderList"></div>
-  </section>
+  <!-- Hidden canvases for barcode -->
+  <canvas id="barcodeCanvasCustomer" style="display:none"></canvas>
+  <canvas id="barcodeCanvasSeller" style="display:none"></canvas>
 
-  <!-- SETTINGS -->
-  <section id="settings" class="tab">
-    <p><b>Shipper:</b> Faris Dar</p>
-    <p><b>Contact:</b> 03444318078</p>
-    <p><b>Email:</b> farisdaar107@gmail.com</p>
-  </section>
-</main>
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 
-<canvas id="barcode" hidden></canvas>
+  <script>
+    const API_BASE = "https://cppbackened.onrender.com";
 
-<script>
-/* ------------------ STORAGE ------------------ */
-let products = JSON.parse(localStorage.getItem("products")) || [];
-let orders = JSON.parse(localStorage.getItem("orders")) || [];
+      
+      
 
-/* ------------------ NAV ------------------ */
-document.querySelectorAll(".nav").forEach(btn=>{
-  btn.onclick=()=>{
-    document.querySelectorAll(".nav").forEach(b=>b.classList.remove("active"));
-    btn.classList.add("active");
-    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("show"));
-    document.getElementById(btn.dataset.tab).classList.add("show");
-    sidebar.classList.remove("open");
-  }
+    // --- Sidebar Toggle for Mobile ---
+    const sidebar = document.getElementById("sidebar");
+    const menuToggle = document.getElementById("menuToggle");
+    menuToggle.addEventListener("click", () => {
+      sidebar.classList.toggle("open");
+    });
+
+    // Close sidebar with cross
+const closeSidebarBtn = document.getElementById("closeSidebar");
+closeSidebarBtn.addEventListener("click", () => {
+  sidebar.classList.remove("open");
 });
 
-menuBtn.onclick=()=>sidebar.classList.toggle("open");
+    // --- Navigation ---
+    document.querySelectorAll(".nav-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        const target = btn.getAttribute("data-section");
+        document.querySelectorAll(".section").forEach(sec => sec.classList.remove("visible"));
+        document.getElementById(target).classList.add("visible");
+        sidebar.classList.remove("open"); // close sidebar on mobile after navigation
+      });
+    });
 
-/* ------------------ PRODUCTS ------------------ */
-productForm.onsubmit=e=>{
+    // --- Theme Switch ---
+    const themeSwitcher = document.getElementById("themeSwitcher");
+    if (localStorage.getItem("theme") === "dark") {
+      document.body.classList.add("dark");
+      themeSwitcher.checked = true;
+    }
+    themeSwitcher.addEventListener("change", () => {
+      document.body.classList.toggle("dark");
+      localStorage.setItem("theme", document.body.classList.contains("dark") ? "dark" : "light");
+    });
+
+    // --- Logout ---
+    function logout() {
+      sessionStorage.removeItem("adminLoggedIn");
+      window.location.href = "admin_login.html";
+    }
+
+    // --- PRODUCTS ---
+    async function loadProducts() {
+      const res = await fetch(`${API_BASE}/api/products`);
+      const data = await res.json();
+      window.productsCache = data;
+      document.getElementById("totalProducts").textContent = data.length;
+      displayProducts(data);
+    }
+
+    function displayProducts(products) {
+      const search = document.getElementById("productSearch").value.toLowerCase();
+      const container = document.getElementById("productList");
+      container.innerHTML = "";
+      products
+        .filter(p => p.title.toLowerCase().includes(search))
+        .forEach(p => {
+          const div = document.createElement("div");
+          div.className = "item product-item";
+
+          // Split images for carousel
+          const imgs = p.img.split(",").map(s => s.trim());
+          const carouselId = `carousel_${p.id}`;
+          let imgHtml = `
+            <div class="carousel-container" id="${carouselId}">
+              <div class="carousel-images">
+                ${imgs.map(src => `<img src="${src}" />`).join('')}
+              </div>
+              <button class="carousel-btn left">◀</button>
+              <button class="carousel-btn right">▶</button>
+            </div>
+          `;
+
+          div.innerHTML = `
+            ${imgHtml}
+            <div class="details">
+              <input value="${p.title}" class="edit-title" />
+              <input type="number" value="${p.price}" class="edit-price" />
+              <input type="number" value="${p.stock}" class="edit-stock" />
+            </div>
+            <div class="actions">
+              <button class="save-btn">💾</button>
+              <button class="delete-btn">🗑️</button>
+            </div>`;
+
+          // Save
+          div.querySelector(".save-btn").onclick = async () => {
+            const title = div.querySelector(".edit-title").value;
+            const price = div.querySelector(".edit-price").value;
+            const stock = div.querySelector(".edit-stock").value;
+            await fetch(`${API_BASE}/api/addProduct`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: p.id, title, price, stock, img: p.img })
+            });
+            loadProducts();
+          };
+          // Delete
+          div.querySelector(".delete-btn").onclick = async () => {
+            if (confirm("Delete this product?")) {
+              await fetch(`${API_BASE}/api/deleteProduct`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: p.id })
+              });
+              loadProducts();
+            }
+          };
+
+          container.appendChild(div);
+
+          // Carousel functionality
+          const carousel = div.querySelector(".carousel-container");
+          const imgWrapper = carousel.querySelector(".carousel-images");
+          let index = 0;
+          const leftBtn = carousel.querySelector(".left");
+          const rightBtn = carousel.querySelector(".right");
+
+          function updateCarousel() {
+            imgWrapper.style.transform = `translateX(-${index * 105}px)`;
+          }
+
+          leftBtn.onclick = () => { index = Math.max(index-1, 0); updateCarousel(); };
+          rightBtn.onclick = () => { index = Math.min(index+1, imgs.length-1); updateCarousel(); };
+
+          // Touch swipe support
+          let startX = 0;
+          carousel.addEventListener("touchstart", e => startX = e.touches[0].clientX);
+          carousel.addEventListener("touchend", e => {
+            let endX = e.changedTouches[0].clientX;
+            if(endX-startX > 50) { index = Math.max(index-1,0); updateCarousel(); }
+            else if(startX-endX > 50) { index = Math.min(index+1, imgs.length-1); updateCarousel(); }
+          });
+        });
+    }
+
+    document.getElementById("productSearch").addEventListener("input", () =>
+      displayProducts(window.productsCache)
+    );
+// 26dec2025
+      // --- ADD PRODUCT FORM ---
+document.getElementById("addProductForm").onsubmit = async e => {
   e.preventDefault();
 
-  let imgs=[];
-  [...images.files].forEach(f=>{
-    let r=new FileReader();
-    r.onload=()=>{ imgs.push(r.result); save(); }
-    r.readAsDataURL(f);
-  });
+  const product = {
+    title: document.getElementById("pTitle").value.trim(),
+    price: Number(document.getElementById("pPrice").value),
+    img: document.getElementById("pImg").value.trim(),
+    stock: Number(document.getElementById("pStock").value)
+  };
 
-  function save(){
-    if(imgs.length!==images.files.length) return;
-    products.push({
-      id:Date.now(),
-      title:title.value,
-      price:+price.value,
-      stock:+stock.value,
-      imgs
+  try {
+    const res = await fetch(`${API_BASE}/api/addProduct`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(product)
     });
-    localStorage.setItem("products",JSON.stringify(products));
-    productForm.reset();
-    renderProducts();
-    updateStats();
+
+    if (!res.ok) {
+      const data = await res.json();
+      alert(data.message || "Failed to add product");
+      return;
+    }
+
+    e.target.reset();
+    loadProducts();
+  } catch (err) {
+    console.error(err);
+    alert("Server error");
   }
 };
+    
 
-function renderProducts(){
-  productList.innerHTML="";
-  products.forEach(p=>{
-    productList.innerHTML+=`
-      <div class="item">
-        <img src="${p.imgs[0]}">
-        <div>
-          <b>${p.title}</b><br>
-          Rs.${p.price} | Stock: ${p.stock}
-        </div>
-      </div>`;
-  });
-}
-
-/* ------------------ ORDERS ------------------ */
-function renderOrders(){
-  orderList.innerHTML="";
-  orders.forEach((o,i)=>{
-    orderList.innerHTML+=`
-    <div class="item">
-      <b>#${i+1} ${o.product}</b>
-      <p>${o.name} | ${o.contact}</p>
-      <button onclick="downloadLabel(${i})">Download Label</button>
-    </div>`;
-  });
-}
-
-/* ------------------ SHIPPING LABEL ------------------ */
-function downloadLabel(i){
-  const o=orders[i];
-  const {jsPDF}=window.jspdf;
-  const pdf=new jsPDF();
-
-  JsBarcode(barcode,o.contact,{displayValue:true});
-
-  pdf.text("SHIPPING LABEL",70,15);
-  pdf.rect(10,20,190,120);
-
-  pdf.text(`Product: ${o.product}`,15,30);
-  pdf.text(`Name: ${o.name}`,15,40);
-  pdf.text(`Contact: ${o.contact}`,15,50);
-  pdf.text(`Email: ${o.email}`,15,60);
-  pdf.text(`Address: ${o.address}`,15,70);
-
-  pdf.text("Shipper: Faris Dar",15,95);
-  pdf.text("Contact: 03444318078",15,105);
-  pdf.text("Email: farisdaar107@gmail.com",15,115);
-
-  pdf.addImage(barcode.toDataURL(),"PNG",120,40,60,20);
-  pdf.save(`Order_${i+1}.pdf`);
-}
-
-/* ------------------ DASHBOARD ------------------ */
-function updateStats(){
-  pCount.innerText=products.length;
-  oCount.innerText=orders.length;
-  revenue.innerText="Rs."+orders.reduce((t,o)=>t+(+o.total||0),0);
-}
-
-function chart(){
-  new Chart(salesChart,{
-    type:"line",
-    data:{
-      labels:orders.map((_,i)=>i+1),
-      datasets:[{label:"Sales",data:orders.map(o=>o.total||0)}]
+    // --- ORDERS ---
+    async function loadOrders() {
+      const res = await fetch(`${API_BASE}/api/orders`);
+      const data = await res.json();
+      window.ordersCache = data;
+      document.getElementById("totalOrders").textContent = data.length;
+      document.getElementById("totalRevenue").textContent =
+        "RS." + data.reduce((t, o) => t + Number(o.totalAmount || 0), 0);
+      displayOrders(data);
+      renderChart(data);
     }
-  });
-}
 
-/* ------------------ INIT ------------------ */
-renderProducts();
-renderOrders();
-updateStats();
-chart();
-</script>
+    function displayOrders(orders) {
+      const search = orderSearch.value.toLowerCase();
+      const container = orderList;
+      container.innerHTML = "";
+      orders
+        .filter(
+          o =>
+            o.name.toLowerCase().includes(search) ||
+            o.contact.includes(search) ||
+            o.product.toLowerCase().includes(search)
+        )
+        .forEach((o, i) => {
+          const div = document.createElement("div");
+          div.className = "item order-item";
+          div.innerHTML = `
+            <div class="details">
+              <p><b>${o.product}</b></p>
+              <p>${o.name} | ${o.contact}</p>
+              <p>RS.${o.totalAmount} | ${o.payment}</p>
+            </div>
+            <div class="actions">
+              <button onclick="downloadLabel(${i})">📄</button>
+            </div>`;
+          container.appendChild(div);
+        });
+    }
 
+    orderSearch.addEventListener("input", () => displayOrders(window.ordersCache));
+
+    document.getElementById("exportCSV").onclick = () => {
+      const rows = [["Product","Name","Contact","Email","Address","Total","Payment"]];
+      window.ordersCache.forEach(o => rows.push([o.product,o.name,o.contact,o.email,o.address,o.totalAmount,o.payment]));
+      const blob = new Blob([rows.map(r=>r.join(",")).join("\n")], {type:"text/csv"});
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "orders.csv";
+      link.click();
+    };
+
+    // --- Label Generator ---
+    function generateBarcode(text, canvasId) {
+      const canvas = document.getElementById(canvasId);
+      JsBarcode(canvas, text, { format: "CODE128", width: 1.2, height: 25, displayValue: true });
+      return canvas.toDataURL("image/png");
+    }
+
+    function downloadLabel(index) {
+      const o = window.ordersCache[index];
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFont("helvetica","bold"); doc.setFontSize(18);
+      doc.text("SHIPPING DETAILS", 70, 20);
+      doc.setFont("helvetica","normal"); doc.setFontSize(12);
+      doc.rect(20,30,170,160);
+      doc.text(`Product: ${o.product}`,25,40);
+      doc.text(`Name: ${o.name}`,25,50);
+      doc.text(`Contact: ${o.contact}`,25,60);
+      const cust = generateBarcode(o.contact, "barcodeCanvasCustomer");
+      doc.addImage(cust, "PNG", 25, 65, 80, 20);
+      doc.text(`Email: ${o.email}`,25,90);
+      doc.text(`Address: ${o.address}`,25,100);
+      doc.text(`Total: RS.${o.totalAmount}`,25,115);
+      doc.text(`Payment: ${o.payment}`,25,125);
+      doc.text("From: OnlineTraderz",25,140);
+      doc.text("Support: 923444318078",25,150);
+      const sell = generateBarcode("923444318078", "barcodeCanvasSeller");
+      doc.addImage(sell, "PNG", 25, 155, 80, 20);
+      doc.save(`label_${index+1}.pdf`);
+    }
+
+    // --- Analytics Chart ---
+    function renderChart(orders) {
+      const ctx = document.getElementById("salesChart").getContext("2d");
+      const daily = {};
+      orders.forEach(o => {
+        const d = (o.date || "Unknown").split("T")[0];
+        daily[d] = (daily[d] || 0) + Number(o.totalAmount || 0);
+      });
+      new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: Object.keys(daily),
+          datasets: [{ label: "Sales (Rs)", data: Object.values(daily), fill: true, borderWidth: 2 }]
+        }
+      });
+    }
+
+    // --- INIT ---
+    loadProducts();
+    loadOrders();
+  </script>
 </body>
 </html>
