@@ -538,3 +538,22 @@ img {
   50% { transform: scale(1.08); }
   100% { transform: scale(1); }
 }
+/* =========================
+   BUTTON INTERACTIONS
+========================= */
+.btn {
+  transition: background 0.25s ease, color 0.25s ease, transform 0.1s ease;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+}
+
+.btn:active {
+  transform: scale(0.96);
+}
+
+.btn-outline:hover {
+  background: #ff6a00;
+  color: #fff;
+}
