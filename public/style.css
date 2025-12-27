@@ -645,3 +645,73 @@ img {
   outline: none;
   border-color: #ff6a00;
 }
+/* =========================
+   ATTRACTIVE CHECKOUT FORM
+========================= */
+.checkout-form {
+  animation: modalIn 0.4s ease;
+}
+
+.checkout-form h2 {
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.checkout-sub {
+  text-align: center;
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 15px;
+}
+
+.form-group {
+  margin-bottom: 12px;
+}
+
+.checkout-form label {
+  font-weight: 600;
+  font-size: 14px;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.checkout-form input,
+.checkout-form textarea,
+.checkout-form select {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  font-size: 14px;
+  transition: 0.2s;
+}
+
+.checkout-form input:focus,
+.checkout-form textarea:focus,
+.checkout-form select:focus {
+  outline: none;
+  border-color: #ff6a00;
+  box-shadow: 0 0 0 3px rgba(255,106,0,0.15);
+}
+
+.checkout-form textarea {
+  resize: none;
+  height: 90px;
+}
+/* =========================
+   SUCCESS POPUP
+========================= */
+.thank-card {
+  text-align: center;
+}
+
+.thank-card h2 {
+  color: #28a745;
+  margin-bottom: 10px;
+}
+
+.redirect-text {
+  font-size: 14px;
+  color: #555;
+  margin-top: 10px;
+}
