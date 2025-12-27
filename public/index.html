@@ -243,7 +243,20 @@ function setupQuickView(products) {
             modal.querySelector('.close-view').addEventListener('click', () => modal.remove());
 
 
-  <script>
+  <!-- 🛒 Cart Sidebar -->
+<div class="cart-sidebar" id="cartSidebar">
+  <div class="cart-header">
+    <h3>Your Cart</h3>
+    <button id="closeCart">✖</button>
+  </div>
+  <div id="cartItems"></div>
+  <div class="cart-footer">
+    <p>Total: Rs.<span id="cartTotal">0</span></p>
+    <button class="checkout-btn">Checkout</button>
+  </div>
+</div>
+
+<script>
 const API_BASE = "https://cppbackened.onrender.com";
 
 // --- Cart ---
@@ -333,12 +346,11 @@ async function loadProducts() {
     }
 }
 
-// --- Quick View Setup ---
+// --- Quick View ---
 function setupQuickView(products) {
     document.querySelectorAll('.btn-outline').forEach((btn, index) => {
         btn.addEventListener('click', () => {
             const p = products[index];
-
             const modal = document.createElement('div');
             modal.className = 'quickview-modal';
             modal.innerHTML = `
@@ -360,6 +372,7 @@ function setupQuickView(products) {
             modal.querySelector('.close-view').addEventListener('click', () => modal.remove());
             modal.querySelector('.btn-outline').addEventListener('click', () => modal.remove());
             modal.querySelector('.btn-primary').addEventListener('click', () => {
+                if(p.stock <= 0){ alert("Item is out of stock!"); return; }
                 addToCart(p);
                 modal.remove();
             });
@@ -367,7 +380,7 @@ function setupQuickView(products) {
     });
 }
 
-// --- Display Products with Badges ---
+// --- Display Products ---
 function displayProducts(products) {
     const grid = document.createElement("div");
     grid.className = "grid";
@@ -377,8 +390,7 @@ function displayProducts(products) {
         card.className = "card";
         card.setAttribute("data-category", p.category || "all");
 
-        let badgeHTML = p.badge ? `<div class="badge ${p.badge}">${p.badge}</div>` : "";
-
+        const badgeHTML = p.badge ? `<div class="badge ${p.badge}">${p.badge}</div>` : "";
         card.innerHTML = `
             ${badgeHTML}
             <img src="${p.img}" alt="${p.title}">
@@ -392,10 +404,12 @@ function displayProducts(products) {
                 <button class="btn btn-outline">View</button>
             </div>
         `;
-
         grid.appendChild(card);
 
-        card.querySelector(".add-cart-btn").addEventListener("click", () => addToCart(p));
+        card.querySelector(".add-cart-btn").addEventListener("click", () => {
+            if(p.stock <= 0){ alert("Item is out of stock!"); return; }
+            addToCart(p);
+        });
     });
 
     document.querySelector(".page").appendChild(grid);
@@ -424,7 +438,7 @@ categoryItems.forEach(item => {
     });
 });
 
-// --- Search Filter ---
+// --- Search ---
 const searchInput = document.querySelector('.search input');
 function attachSearchListener() {
     const allProducts = document.querySelectorAll('.card');
@@ -442,7 +456,7 @@ function attachSearchListener() {
 }
 attachSearchListener();
 
-// --- Checkout Modal & Order Submission ---
+// --- Checkout ---
 document.querySelector(".cart-footer .checkout-btn").addEventListener("click", () => {
     const modal = document.createElement("div");
     modal.className = "checkout-modal-overlay";
@@ -453,16 +467,12 @@ document.querySelector(".cart-footer .checkout-btn").addEventListener("click", (
           <form id="orderForm">
             <label>Full Name</label>
             <input type="text" id="custName" required placeholder="John Doe">
-
             <label>Phone Number</label>
             <input type="tel" id="custContact" required placeholder="03XXXXXXXXX">
-
             <label>Email (optional)</label>
             <input type="email" id="custEmail" placeholder="example@email.com">
-
             <label>Delivery Address</label>
             <textarea id="custAddress" required placeholder="House no, street, city"></textarea>
-
             <label>Payment Method</label>
             <select id="custPayment" required>
               <option value="">Select payment method</option>
@@ -471,7 +481,6 @@ document.querySelector(".cart-footer .checkout-btn").addEventListener("click", (
               <option value="easypaisa">EasyPaisa</option>
               <option value="jazzcash">JazzCash</option>
             </select>
-
             <button type="button" id="submitOrder">Place Order</button>
             <button type="button" id="closeCheckout">Cancel</button>
           </form>
@@ -485,17 +494,11 @@ document.querySelector(".cart-footer .checkout-btn").addEventListener("click", (
     modal.querySelector("#submitOrder").addEventListener("click", () => {
         const name = modal.querySelector("#custName").value.trim();
         const contact = modal.querySelector("#custContact").value.trim();
-        const email = modal.querySelector("#custEmail").value.trim();
         const address = modal.querySelector("#custAddress").value.trim();
-
-        if (!name || !contact || !address) {
-            alert("Please fill all required details");
-            return;
-        }
+        if(!name || !contact || !address){ alert("Please fill all required details"); return; }
 
         const orderId = "OZ" + Math.floor(100000 + Math.random() * 900000);
         const total = document.getElementById("cartTotal").textContent;
-
         modal.remove();
 
         const popup = document.createElement("div");
@@ -509,53 +512,34 @@ document.querySelector(".cart-footer .checkout-btn").addEventListener("click", (
         `;
         document.body.appendChild(popup);
 
-        // --- Fix 1: WhatsApp number sanitization ---
-        const sanitizedContact = contact.replace(/\D/g, '');
+        const sanitizedContact = contact.replace(/\D/g,'');
+        const msg = encodeURIComponent(`Hello ${name}! 👋 Your order (${orderId}) has been placed successfully.\n\nTotal: Rs.${total}\nAddress: ${address}\nThank you for shopping at ONLINETRADERZ!`);
+        window.open(`https://wa.me/${sanitizedContact}?text=${msg}`,"_blank");
 
-        const msg = encodeURIComponent(
-            \`Hello ${name}! 👋 Your order (${orderId}) has been placed successfully.\n\nTotal: Rs.${total}\nAddress: ${address}\nThank you for shopping at ONLINETRADERZ!\`
-        );
-        window.open(`https://wa.me/${sanitizedContact}?text=${msg}`, "_blank");
-
-        // --- Fix 2: Countdown timer for redirect ---
         let countdown = 10;
         const countdownEl = popup.querySelector("#countdown");
         const interval = setInterval(() => {
             countdown--;
             countdownEl.textContent = countdown;
-            if (countdown <= 0) clearInterval(interval);
-        }, 1000);
+            if(countdown <=0) clearInterval(interval);
+        },1000);
 
-        setTimeout(() => {
+        setTimeout(()=>{
             popup.remove();
             localStorage.removeItem("cart");
-            window.location.href = "index.html";
-        }, 10000);
+            window.location.href="index.html";
+        },10000);
     });
 });
 
-// --- Fix 3: Prevent adding out-of-stock items ---
-document.addEventListener('click', e => {
-    if (e.target.classList.contains('add-cart-btn')) {
-        const card = e.target.closest('.card');
-        const stockEl = card.querySelector('.stock');
-        if (stockEl && stockEl.classList.contains('out')) {
-            alert('Sorry, this item is out of stock!');
-            e.stopPropagation();
-        }
-    }
-});
-
-// --- Fix 4: Theme toggle ---
-const themeBtn = document.querySelector('.theme-toggle');
-themeBtn.addEventListener('click', () => {
+// --- Theme Toggle ---
+document.querySelector('.theme-toggle').addEventListener('click', () => {
     document.body.classList.toggle('theme-dark');
     document.body.classList.toggle('theme-grey');
 });
 
-// --- Fix 5: Ensure cart persistence across reload ---
+// --- Save cart on reload ---
 window.addEventListener('beforeunload', saveCart);
-
 </script>
 
 </body>   
