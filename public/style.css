@@ -717,3 +717,22 @@ flex-direction: column;
   color: #555;
   margin-top: 10px;
 }
+/* =========================
+   CART & MODAL FIXES
+========================= */
+
+/* Ensure cart sidebar is above all other elements */
+.cart-sidebar {
+  z-index: 1600;
+}
+
+/* Make checkout modal scrollable on mobile */
+.checkout-modal,
+.checkout-modal-overlay {
+  overflow-y: auto;
+}
+
+/* Fix select dropdown visibility for EasyPaisa / JazzCash */
+.checkout-form select {
+  appearance: none;
+}
