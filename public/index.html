@@ -194,20 +194,7 @@ function setupQuickView(products) {
     });
   });
 }
-function displayProducts(products) {
-  const grid = document.createElement("div");
-  grid.className = "grid";
 
-  products.forEach(p => {
-    const card = document.createElement("div");
-    card.className = "card";
-    card.setAttribute("data-category", p.category || "all");
-
-    // Add badge if product has tag
-    let badgeHTML = "";
-    if (p.badge) { // p.badge can be "sale", "new", or "hot"
-      badgeHTML = `<div class="badge ${p.badge}">${p.badge}</div>`;
-    }
 
     card.innerHTML = `
       ${badgeHTML}
