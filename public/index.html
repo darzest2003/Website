@@ -131,19 +131,39 @@
 const API_BASE = "https://cppbackened.onrender.com";
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
 
-// Cart functions
+// ----------------- Cart Functions -----------------
 function updateCartCount() { document.querySelector(".cart-count").textContent = cart.length; }
 function saveCart() { localStorage.setItem("cart", JSON.stringify(cart)); updateCartCount(); renderCartItems(); }
-function addToCart(p) { if(p.stock<=0){alert("Out of stock!"); return;} const e = cart.find(i=>i.id===p.id); if(e){e.quantity++}else{p.quantity=1; cart.push(p);} saveCart(); alert(`${p.title} added!`); }
-function changeQuantity(i,d){cart[i].quantity+=d;if(cart[i].quantity<=0)cart.splice(i,1);saveCart();}
-function removeFromCart(i){cart.splice(i,1);saveCart();}
-function renderCartItems(){ const container=document.getElementById("cartItems"); const total=document.getElementById("cartTotal"); container.innerHTML=""; let sum=0; cart.forEach((item,i)=>{ const div=document.createElement("div"); div.className="cart-item"; div.innerHTML=`<img src="${item.img}" alt="${item.title}"><div class="cart-item-details"><h4>${item.title}</h4><p>Rs.${item.price}</p><div class="qty-control"><button onclick="changeQuantity(${i},-1)">➖</button><span>${item.quantity}</span><button onclick="changeQuantity(${i},1)">➕</button></div></div><button class="remove-btn" onclick="removeFromCart(${i})">🗑️</button>`; container.appendChild(div); sum+=item.price*item.quantity; }); total.textContent=sum; }
+function addToCart(p) { 
+    if(p.stock<=0){ alert("Out of stock!"); return; } 
+    const e = cart.find(i=>i.id===p.id); 
+    if(e){ e.quantity++ } else { p.quantity=1; cart.push(p); } 
+    saveCart(); 
+    alert(`${p.title} added!`); 
+}
+function changeQuantity(i,d){ cart[i].quantity+=d; if(cart[i].quantity<=0) cart.splice(i,1); saveCart(); }
+function removeFromCart(i){ cart.splice(i,1); saveCart(); }
+function renderCartItems(){ 
+    const container=document.getElementById("cartItems"); 
+    const total=document.getElementById("cartTotal"); 
+    container.innerHTML=""; 
+    let sum=0; 
+    cart.forEach((item,i)=>{ 
+        const div=document.createElement("div"); 
+        div.className="cart-item"; 
+        div.innerHTML=`<img src="${item.img}" alt="${item.title}"><div class="cart-item-details"><h4>${item.title}</h4><p>Rs.${item.price}</p><div class="qty-control"><button onclick="changeQuantity(${i},-1)">➖</button><span>${item.quantity}</span><button onclick="changeQuantity(${i},1)">➕</button></div></div><button class="remove-btn" onclick="removeFromCart(${i})">🗑️</button>`; 
+        container.appendChild(div); 
+        sum+=item.price*item.quantity; 
+    }); 
+    total.textContent=sum; 
+}
 
+// ----------------- Cart Sidebar -----------------
 document.querySelector(".cart-btn").addEventListener("click",()=>document.getElementById("cartSidebar").classList.add("active"));
 document.getElementById("closeCart").addEventListener("click",()=>document.getElementById("cartSidebar").classList.remove("active"));
 updateCartCount(); renderCartItems();
 
-// Load Products
+// ----------------- Load Products -----------------
 async function loadProducts(){
   try{
     const res=await fetch(`${API_BASE}/api/products`);
@@ -152,48 +172,138 @@ async function loadProducts(){
   }catch(err){console.error(err);}
 }
 
-// Display Products
+// ----------------- Display Products -----------------
 function displayProducts(products){
   const grid=document.createElement("div"); grid.className="grid";
   products.forEach(p=>{
     const card=document.createElement("div"); card.className="card"; card.setAttribute("data-category",p.category||"all");
     const badgeHTML=p.badge?`<div class="badge ${p.badge}">${p.badge}</div>`:"";
-    card.innerHTML=`${badgeHTML}<img src="${p.img}" alt="${p.title}"><h3>${p.title}</h3><div class="meta"><div class="price">Rs.${p.price}</div><div class="stock ${p.stock>0?'in':'out'}">${p.stock>0?'In Stock':'Out of Stock'}</div></div><div class="actions"><button class="btn btn-primary add-cart-btn">Add to Cart</button><button class="btn btn-outline">View</button></div>`;
+    card.innerHTML=`${badgeHTML}<img src="${p.img}" alt="${p.title}"><h3>${p.title}</h3><div class="meta"><div class="price">Rs.${p.price}</div><div class="stock ${p.stock>0?'in':'out'}">${p.stock>0?'In Stock':'Out of Stock'}</div></div>`;
     grid.appendChild(card);
-    card.querySelector(".add-cart-btn").addEventListener("click",()=>addToCart(p));
+
+    // Click opens inline product detail section
+    card.addEventListener("click",()=>openProductDetail(p));
   });
   document.querySelector(".page").appendChild(grid);
-  setupQuickView(products);
 }
 
-// Quick View
-function setupQuickView(products){
-  document.querySelectorAll('.btn-outline').forEach((btn,index)=>{
-    btn.addEventListener('click',()=>{
-      const p=products[index];
-      const modal=document.createElement('div'); modal.className='quickview-modal';
-      modal.innerHTML=`<div class="quickview-card"><button class="close-view">✖</button><img src="${p.img}" alt="${p.title}"><h2>${p.title}</h2><p class="price">Rs.${p.price}</p><p class="stock">${p.stock>0?'✅ In Stock':'❌ Out of Stock'}</p><p class="desc">${p.desc||'No description available.'}</p><div class="actions"><button class="btn btn-primary">Add to Cart</button><button class="btn btn-outline">Close</button></div></div>`;
-      document.body.appendChild(modal);
-      modal.querySelector('.close-view').addEventListener('click',()=>modal.remove());
-      modal.querySelector('.btn-outline').addEventListener('click',()=>modal.remove());
-      modal.querySelector('.btn-primary').addEventListener('click',()=>{ addToCart(p); modal.remove(); });
-    });
-  });
+// ----------------- Product Detail View -----------------
+function openProductDetail(p){
+    // Remove existing detail if any
+    const existing = document.querySelector(".product-detail-overlay");
+    if(existing) existing.remove();
+
+    const overlay=document.createElement("div"); overlay.className="product-detail-overlay";
+    overlay.innerHTML=`
+      <div class="product-detail">
+        <button class="close-detail">✖</button>
+        <div class="detail-content">
+          <div class="detail-img">
+            <img src="${p.img}" alt="${p.title}">
+          </div>
+          <div class="detail-info">
+            <h2>${p.title}</h2>
+            <p class="price">Rs.${p.price}</p>
+            <p class="stock">${p.stock>0?'✅ In Stock':'❌ Out of Stock'}</p>
+            <p class="desc">${p.desc||'No description available.'}</p>
+            <div class="actions">
+              <button class="btn btn-primary add-cart-btn">Add to Cart</button>
+              <button class="btn btn-outline">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    overlay.querySelector(".close-detail").addEventListener("click",()=>overlay.remove());
+    overlay.querySelector(".btn-outline").addEventListener("click",()=>overlay.remove());
+    overlay.querySelector(".add-cart-btn").addEventListener("click",()=>{ addToCart(p); });
 }
 
-// Sidebar & Search
+// ----------------- Sidebar & Category Filter -----------------
 document.getElementById('menuToggle').addEventListener('click',()=>document.getElementById('sidebar').classList.add('active'));
 document.getElementById('closeSidebar').addEventListener('click',()=>document.getElementById('sidebar').classList.remove('active'));
-document.querySelectorAll('.category-list li').forEach(item=>item.addEventListener('click',()=>{ const sel=item.getAttribute('data-category'); document.querySelectorAll('.card').forEach(c=>{ c.style.display=(sel===c.getAttribute('data-category')||sel==='all')?'flex':'none'; }); document.getElementById('sidebar').classList.remove('active'); }));
-document.querySelector('.search input').addEventListener('input',e=>{ const q=e.target.value.toLowerCase(); document.querySelectorAll('.card').forEach(c=>{ c.style.display=c.querySelector('h3').textContent.toLowerCase().includes(q)?'flex':'none'; }); });
+document.querySelectorAll('.category-list li').forEach(item=>item.addEventListener('click',()=>{
+    const sel=item.getAttribute('data-category'); 
+    document.querySelectorAll('.card').forEach(c=>{
+        c.style.display=(sel===c.getAttribute('data-category')||sel==='all')?'flex':'none';
+    });
+    document.getElementById('sidebar').classList.remove('active');
+}));
 
-// Theme toggle
+// ----------------- Search -----------------
+document.querySelector('.search input').addEventListener('input',e=>{
+    const q=e.target.value.toLowerCase(); 
+    document.querySelectorAll('.card').forEach(c=>{
+        c.style.display=c.querySelector('h3').textContent.toLowerCase().includes(q)?'flex':'none';
+    });
+});
+
+// ----------------- Theme Toggle -----------------
 document.querySelector('.theme-toggle').addEventListener('click',()=>{ document.body.classList.toggle('theme-dark'); document.body.classList.toggle('theme-grey'); });
 
+// ----------------- Checkout & Payment -----------------
+document.querySelector(".cart-footer .checkout-btn").addEventListener("click",()=>{
+    if(cart.length===0){ alert("Cart is empty!"); return; }
+    const modal=document.createElement("div"); modal.className="checkout-modal-overlay";
+    modal.innerHTML=`<div class="checkout-modal" id="checkoutModal">
+      <div class="checkout-form">
+        <h2>🛒 Complete Your Order</h2>
+        <form id="orderForm">
+          <label>Full Name</label><input type="text" id="custName" required placeholder="John Doe">
+          <label>Phone Number</label><input type="tel" id="custContact" required placeholder="03XXXXXXXXX">
+          <label>Email (optional)</label><input type="email" id="custEmail" placeholder="example@email.com">
+          <label>Delivery Address</label><textarea id="custAddress" required placeholder="House no, street, city"></textarea>
+          <label>Payment Method</label>
+          <select id="custPayment" required>
+            <option value="">Select payment method</option>
+            <option value="cod">Cash on Delivery</option>
+            <option value="easypaisa">Easypaisa</option>
+            <option value="jazzcash">JazzCash</option>
+          </select>
+          <button type="button" id="submitOrder">Place Order</button>
+          <button type="button" id="closeCheckout">Cancel</button>
+        </form>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
+
+    modal.querySelector("#closeCheckout").addEventListener("click",()=>modal.remove());
+
+    modal.querySelector("#submitOrder").addEventListener("click",()=>{
+        const name=modal.querySelector("#custName").value.trim();
+        const contact=modal.querySelector("#custContact").value.trim();
+        const address=modal.querySelector("#custAddress").value.trim();
+        const payment=modal.querySelector("#custPayment").value;
+        if(!name || !contact || !address || !payment){ alert("Please fill all required fields"); return; }
+
+        const orderId="OZ"+Math.floor(100000 + Math.random()*900000);
+        const total=document.getElementById("cartTotal").textContent;
+        modal.remove();
+
+        if(payment==="easypaisa"){
+            window.open(`https://www.easypaisa.com.pk/pay/03187900076?amount=${total}&reference=${orderId}`,"_blank");
+        } else if(payment==="jazzcash"){
+            window.open(`https://www.jazzcash.com.pk/pay/03187900076?amount=${total}&reference=${orderId}`,"_blank");
+        }
+
+        const popup=document.createElement("div"); popup.className="thank-popup";
+        popup.innerHTML=`<div class="thank-card"><h2>🎉 Order Successful!</h2><p>Your order has been placed successfully.</p><p class="redirect-text">Redirecting to home page in <span id="countdown">10</span> seconds...</p></div>`;
+        document.body.appendChild(popup);
+
+        let countdown=10;
+        const countdownEl=popup.querySelector("#countdown");
+        const interval=setInterval(()=>{ countdown--; countdownEl.textContent=countdown; if(countdown<=0) clearInterval(interval); },1000);
+
+        setTimeout(()=>{ popup.remove(); localStorage.removeItem("cart"); window.location.href="index.html"; },10000);
+    });
+});
+
+// ----------------- Initialize -----------------
 loadProducts();
 window.addEventListener('beforeunload',saveCart);
-</script>
-
+          </script>
 
 </body>   
 </html>
