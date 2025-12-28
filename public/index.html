@@ -168,13 +168,47 @@ document.querySelector(".cart-btn").addEventListener("click",()=>document.getEle
 document.getElementById("closeCart").addEventListener("click",()=>document.getElementById("cartSidebar").classList.remove("active"));
 updateCartCount(); renderCartItems();
 
-// ----------------- Load Products -----------------
-async function loadProducts(){
-  try{
-    const res=await fetch(`${API_BASE}/api/products`);
-    const products=await res.json();
+// ----------------- Load Products (Hardcoded) -----------------
+async function loadProducts() {
+  try {
+    // Hardcoded products (2 unique, repeated for grid layout)
+    const baseProducts = [
+      {
+        id: 1,
+        title: "Stylish Shirt",
+        price: 1500,
+        stock: 10,
+        img: "uploads/product1.jpg",
+        desc: "A premium quality stylish shirt.",
+        category: "shirts",
+        badge: "New",
+        gallery: ["uploads/product1.jpg","uploads/product1.jpg","uploads/product1.jpg"]
+      },
+      {
+        id: 2,
+        title: "Cool Shirt",
+        price: 1300,
+        stock: 5,
+        img: "uploads/product1.jpg",
+        desc: "Comfortable and cool shirt for casual wear.",
+        category: "shirts",
+        badge: "Hot",
+        gallery: ["uploads/product1.jpg","uploads/product1.jpg","uploads/product1.jpg"]
+      }
+    ];
+
+    // Repeat them to fill 6x2 grid (12 items)
+    const products = [];
+    for(let i=0; i<6; i++){
+      products.push(baseProducts[0]);
+      products.push(baseProducts[1]);
+    }
+
     displayProducts(products);
-  }catch(err){console.error(err);}
+
+  } catch(err) {
+    console.error(err);
+  }
 }
 
 // ----------------- Display Products -----------------
