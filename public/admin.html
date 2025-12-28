@@ -73,7 +73,7 @@ if (sessionStorage.getItem("adminLoggedIn") !== "true") {
   <button onclick="addProduct()">Add Product</button>
 
   <h2 style="margin-top:20px">Products</h2>
-  <ul id="products"></ul>
+  <ul id="productList"></ul>
 </section>
   
 
@@ -132,7 +132,7 @@ function downloadLabel(id){
 async function loadProducts(){
   const res = await fetch(`${API}/api/products`);
   const data = await res.json();
-  const ul = document.getElementById("products");
+  const ul = document.getElementById("productList");
   ul.innerHTML="";
   data.forEach(p=>{
     ul.innerHTML+=`
