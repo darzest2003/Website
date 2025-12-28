@@ -60,7 +60,7 @@ if (sessionStorage.getItem("adminLoggedIn") !== "true") {
         <th>Label</th>
       </tr>
     </thead>
-    <tbody id="orders"></tbody>
+    <tbody id="ordersBody"></tbody>
   </table>
 </section>
 
@@ -94,7 +94,7 @@ async function loadOrders(){
   let total = 0;
   document.getElementById("orderCount").textContent = data.length;
 
-  const tbody = document.getElementById("orders");
+  const tbody = document.getElementById("ordersBody");
   tbody.innerHTML = "";
 
   data.forEach(o=>{
