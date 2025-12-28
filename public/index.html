@@ -193,37 +193,57 @@ function displayProducts(products){
 }
 
 // ----------------- Product Detail View -----------------
+// ----------------- Product Detail Overlay -----------------
 function openProductDetail(p){
-    // Remove existing detail if any
+    // Remove any existing overlay
     const existing = document.querySelector(".product-detail-overlay");
     if(existing) existing.remove();
 
-    const overlay=document.createElement("div"); overlay.className="product-detail-overlay";
-    overlay.innerHTML=`
-      <div class="product-detail">
-        <button class="close-detail">✖</button>
-        <div class="detail-content">
-          <div class="detail-img">
-            <img src="${p.img}" alt="${p.title}">
-          </div>
-          <div class="detail-info">
-            <h2>${p.title}</h2>
-            <p class="price">Rs.${p.price}</p>
-            <p class="stock">${p.stock>0?'✅ In Stock':'❌ Out of Stock'}</p>
-            <p class="desc">${p.desc||'No description available.'}</p>
-            <div class="actions">
-              <button class="btn btn-primary add-cart-btn">Add to Cart</button>
-              <button class="btn btn-outline">Close</button>
-            </div>
-          </div>
+    // Create overlay
+    const overlay = document.createElement("div");
+    overlay.className = "product-detail-overlay";
+    overlay.innerHTML = `
+    <div class="product-detail-page">
+      <button class="close-detail">✖</button>
+      <div class="product-images">
+        <img src="${p.img}" alt="${p.title}" class="main-img">
+        ${p.gallery ? p.gallery.map(img => `<img src="${img}" class="thumb-img">`).join('') : ''}
+      </div>
+      <div class="product-info">
+        <h2>${p.title}</h2>
+        <p class="price">Rs.${p.price}</p>
+        <p class="stock">${p.stock>0 ? '✅ In Stock' : '❌ Out of Stock'}</p>
+        <p class="desc">${p.desc || 'No description available.'}</p>
+        <div class="actions">
+          <button class="btn add-cart-btn">Add to Cart 🛒</button>
+          <a href="https://wa.me/923444318078?text=I'm%20interested%20in%20${encodeURIComponent(p.title)}" target="_blank" class="btn whatsapp-btn">WhatsApp 📱</a>
+          <button class="btn close-btn">Close</button>
+        </div>
+        <div class="pro-features">
+          <h4>Pro Features:</h4>
+          <ul>
+            <li>High quality images</li>
+            <li>Fast delivery</li>
+            <li>Easy returns</li>
+            <li>Secure payment options</li>
+          </ul>
         </div>
       </div>
+    </div>
     `;
     document.body.appendChild(overlay);
 
-    overlay.querySelector(".close-detail").addEventListener("click",()=>overlay.remove());
-    overlay.querySelector(".btn-outline").addEventListener("click",()=>overlay.remove());
-    overlay.querySelector(".add-cart-btn").addEventListener("click",()=>{ addToCart(p); });
+    // Event listeners
+    overlay.querySelector(".close-detail").addEventListener("click", () => overlay.remove());
+    overlay.querySelector(".close-btn").addEventListener("click", () => overlay.remove());
+    overlay.querySelector(".add-cart-btn").addEventListener("click", () => addToCart(p));
+
+    // Optional: click thumbnail to change main image
+    overlay.querySelectorAll(".thumb-img").forEach(img => {
+        img.addEventListener("click", e => {
+            overlay.querySelector(".main-img").src = e.target.src;
+        });
+    });
 }
 
 // ----------------- Sidebar & Category Filter -----------------
