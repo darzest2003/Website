@@ -1004,6 +1004,70 @@ void handleClient(int clientSocket) {
             close(clientSocket);
             return;
         }
+        // server.js
+const express = require("express");
+const cors = require("cors");
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+app.use(express.static("public")); // serve your frontend files
+
+// ---------------- In-Memory Stores ----------------
+let products = []; // store products
+let orders = [];   // store orders
+
+// ----------------- PRODUCTS -----------------
+app.get("/api/products", (req, res) => {
+  res.json(products);
+});
+
+app.post("/api/addProduct", (req, res) => {
+  const { title, price, stock, img } = req.body;
+  if (!title || !price || !stock || !img) {
+    return res.status(400).json({ error: "Missing fields" });
+  }
+  const newProduct = {
+    id: Date.now().toString(),
+    title,
+    price,
+    stock,
+    img,
+  };
+  products.push(newProduct);
+  res.json({ message: "Product added", product: newProduct });
+});
+
+app.post("/api/deleteProduct", (req, res) => {
+  const { id } = req.body;
+  products = products.filter(p => p.id !== id);
+  res.json({ message: "Product deleted" });
+});
+
+// ----------------- ORDERS -----------------
+app.post("/api/orders", (req, res) => {
+  const order = req.body;
+  order.id = order.id || "OZ" + Math.floor(100000 + Math.random() * 900000);
+  orders.push(order);
+  res.json({ message: "Order saved", order });
+});
+
+app.get("/api/orders", (req, res) => {
+  res.json(orders);
+});
+
+// Optional: shipping label simulation
+app.get("/api/shippingLabel", (req, res) => {
+  const id = req.query.id;
+  const order = orders.find(o => o.id === id);
+  if (!order) return res.status(404).send("Order not found");
+  res.setHeader("Content-Disposition", `attachment; filename=Shipping_${id}.txt`);
+  res.send(`Shipping Label\nOrder ID: ${order.id}\nName: ${order.name}\nAddress: ${order.address}`);
+});
+
+// ----------------- START SERVER -----------------
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
         // find order
         Order *found = nullptr;
         {
