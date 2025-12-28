@@ -846,3 +846,40 @@ flex-direction: column;
 .actions .btn { padding:8px 12px; border:none; border-radius:6px; cursor:pointer; text-decoration:none; color:#fff; background:#000; }
 .actions .btn-outline { background:#ccc; color:#000; }
 .actions .whatsapp-btn { background:#25D366; }
+
+/* =========================
+   FIX MOBILE 2x2 PRODUCT GRID
+========================= */
+.grid, 
+.featured-product {
+  display: grid;
+  gap: 15px;
+  grid-template-columns: repeat(6, 1fr); /* Desktop: 6 per row */
+}
+
+@media (max-width: 1024px) {
+  .grid, 
+  .featured-product {
+    grid-template-columns: repeat(3, 1fr); /* Tablet: 3 per row */
+  }
+}
+
+@media (max-width: 600px) {
+  .grid, 
+  .featured-product {
+    grid-template-columns: repeat(2, 1fr); /* Mobile: 2 per row */
+  }
+}
+
+@media (max-width: 400px) {
+  .grid, 
+  .featured-product {
+    grid-template-columns: 1fr; /* Very small phones: 1 per row */
+  }
+}
+
+.grid .card img, 
+.featured-product .card img {
+  height: 150px;
+  object-fit: cover;
+}
