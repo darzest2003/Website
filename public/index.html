@@ -386,6 +386,31 @@ document.querySelector(".cart-footer .checkout-btn").addEventListener("click",()
         const orderId="OZ"+Math.floor(100000 + Math.random()*900000);
         const total=document.getElementById("cartTotal").textContent;
         modal.remove();
+      // ---------------- Send order to backend ----------------
+const orderData = {
+    id: orderId,
+    name: name,
+    contact: contact,
+    address: address,
+    payment: payment,
+    totalAmount: total,
+    shipping: calculateShipping(parseFloat(total)),
+    items: cart.map(item => ({
+        id: item.id,
+        title: item.title,
+        price: item.price,
+        quantity: item.quantity
+    }))
+};
+
+fetch(`${API_BASE}/api/addOrder`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(orderData)
+})
+.then(res => res.json())
+.then(data => console.log("Order saved:", data))
+.catch(err => console.error("Failed to save order:", err));
 
         if(payment==="easypaisa"){
             window.open(`https://www.easypaisa.com.pk/pay/03187900076?amount=${total}&reference=${orderId}`,"_blank");
