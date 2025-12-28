@@ -212,17 +212,7 @@ img {
   border-radius: 8px;
 }
 
-/* =========================
-   PRODUCT GRID
-========================= */
-.grid {
-  max-width: 1200px;
-  margin: 20px auto 60px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 25px;
-  padding: 0 20px;
-}
+
 /* ================= PRODUCT BADGES ================= */
 .card {
   position: relative; /* needed for badge positioning */
