@@ -57,7 +57,7 @@ input {
   margin:5px;
   width:200px;
 }
-/* ===== Admin Sidebar Menu ===== */
+
 
 .admin-menu-toggle {
   position: fixed;
@@ -73,6 +73,7 @@ input {
   border-radius: 4px;
 }
 
+/* Sidebar */
 .admin-sidebar {
   position: fixed;
   top: 0;
@@ -107,41 +108,17 @@ input {
   padding: 12px;
   cursor: pointer;
   border-radius: 4px;
-  transition: background 0.2s;
 }
 
 .admin-sidebar li:hover {
   background: #333;
 }
 
-/* ===== Section Switching ===== */
-
+/* Sections */
 .admin-section {
   display: none;
 }
 
 .admin-section.active {
   display: block;
-}
-.topbar {
-  margin-left: 60px;
-}
-
-/* ===== Sidebar hidden by default ===== */
-.admin-sidebar {
-  position: fixed;
-  top: 0;
-  left: -260px;   /* hidden */
-  width: 260px;
-  height: 100%;
-  background: #1c1c1c;
-  color: #fff;
-  padding: 20px;
-  z-index: 1000;
-  transition: left 0.3s ease;
-}
-
-/* ===== Sidebar visible on toggle ===== */
-.admin-sidebar.active {
-  left: 0;
 }
