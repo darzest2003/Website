@@ -1,64 +1,70 @@
+/* ===== Global Styles ===== */
 body {
   font-family: Arial, sans-serif;
-  background:#111;
-  color:#eee;
-  margin:0;
-}
-
-.topbar {
-  background:#000;
-  padding:15px;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
+  background: #111;
+  color: #eee;
+  margin: 0;
 }
 
 button {
-  background:red;
-  border:none;
-  padding:6px 12px;
-  color:#fff;
-  cursor:pointer;
+  background: red;
+  border: none;
+  padding: 6px 12px;
+  color: #fff;
+  cursor: pointer;
+  border-radius: 4px;
 }
 
+/* ===== Topbar ===== */
+.topbar {
+  background: #000;
+  padding: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-left: 0; /* always zero, sidebar overlays content */
+}
+
+/* ===== Stats Cards ===== */
 .stats {
-  display:flex;
-  gap:20px;
-  padding:20px;
+  display: flex;
+  gap: 20px;
+  padding: 20px;
 }
 
 .card {
-  background:#1c1c1c;
-  padding:20px;
-  border-radius:8px;
-  flex:1;
-  text-align:center;
+  background: #1c1c1c;
+  padding: 20px;
+  border-radius: 8px;
+  flex: 1;
+  text-align: center;
 }
 
+/* ===== Panels ===== */
 .panel {
-  background:#1a1a1a;
-  margin:20px;
-  padding:20px;
-  border-radius:8px;
+  background: #1a1a1a;
+  margin: 20px;
+  padding: 20px;
+  border-radius: 8px;
 }
 
 table {
-  width:100%;
-  border-collapse:collapse;
+  width: 100%;
+  border-collapse: collapse;
 }
 
-th,td {
-  border-bottom:1px solid #333;
-  padding:8px;
+th, td {
+  border-bottom: 1px solid #333;
+  padding: 8px;
 }
 
 input {
-  padding:8px;
-  margin:5px;
-  width:200px;
+  padding: 8px;
+  margin: 5px;
+  width: 200px;
 }
 
-
+/* ===== Admin Sidebar Menu ===== */
 .admin-menu-toggle {
   position: fixed;
   top: 15px;
@@ -77,7 +83,7 @@ input {
 .admin-sidebar {
   position: fixed;
   top: 0;
-  left: -260px;
+  left: -260px; /* hidden by default */
   width: 260px;
   height: 100%;
   background: #1c1c1c;
@@ -88,7 +94,7 @@ input {
 }
 
 .admin-sidebar.active {
-  left: 0;
+  left: 0; /* visible when toggled */
 }
 
 .admin-sidebar h3 {
@@ -108,29 +114,18 @@ input {
   padding: 12px;
   cursor: pointer;
   border-radius: 4px;
+  transition: background 0.2s;
 }
 
 .admin-sidebar li:hover {
   background: #333;
 }
 
-/* Sections */
+/* ===== Admin Sections ===== */
 .admin-section {
-  display: none;
+  display: none; /* hidden by default */
 }
 
 .admin-section.active {
-  display: block;
-}
-/* ===== Fix Sidebar Toggle ===== */
-.topbar {
-  margin-left: 0; /* remove any shift when sidebar is hidden */
-}
-
-.admin-sidebar {
-  left: -260px !important; /* ensure it's hidden by default */
-}
-
-.admin-sidebar.active {
-  left: 0 !important; /* ensure it appears on toggle */
+  display: block; /* visible when active */
 }
