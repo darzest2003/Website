@@ -211,74 +211,87 @@ async function loadProducts() {
   }
 }
 
-// ----------------- Display Products -----------------
+// ----------------- Display Products with Add to Cart -----------------
 function displayProducts(products){
-  const grid=document.createElement("div"); grid.className="grid";
-  products.forEach(p=>{
-    const card=document.createElement("div"); card.className="card"; card.setAttribute("data-category",p.category||"all");
-    const badgeHTML=p.badge?`<div class="badge ${p.badge}">${p.badge}</div>`:"";
-    card.innerHTML=`${badgeHTML}<img src="${p.img}" alt="${p.title}"><h3>${p.title}</h3><div class="meta"><div class="price">Rs.${p.price}</div><div class="stock ${p.stock>0?'in':'out'}">${p.stock>0?'In Stock':'Out of Stock'}</div></div>`;
+  const grid = document.createElement("div");
+  grid.className = "grid";
+  grid.style.display = "grid";
+  grid.style.gridTemplateColumns = "repeat(auto-fit, minmax(180px, 1fr))";
+  grid.style.gap = "20px";
+  grid.style.padding = "20px";
+
+  products.forEach(p => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.setAttribute("data-category", p.category || "all");
+
+    const badgeHTML = p.badge ? `<div class="badge ${p.badge.toLowerCase()}">${p.badge}</div>` : "";
+
+    card.innerHTML = `
+      ${badgeHTML}
+      <img src="${p.img}" alt="${p.title}">
+      <h3>${p.title}</h3>
+      <div class="meta">
+        <div class="price">Rs.${p.price}</div>
+        <div class="stock ${p.stock>0?'in':'out'}">${p.stock>0?'In Stock':'Out of Stock'}</div>
+      </div>
+      <button class="btn add-cart-btn">Add to Cart 🛒</button>
+    `;
+
     grid.appendChild(card);
 
-    // Click opens inline product detail section
-    card.addEventListener("click",()=>openProductDetail(p));
+    // Add click event for Add to Cart button
+    card.querySelector(".add-cart-btn").addEventListener("click", e => {
+      e.stopPropagation(); // Prevent opening overlay
+      addToCart(p);
+    });
+
+    // Click card opens product detail overlay
+    card.addEventListener("click", () => openProductDetail(p));
   });
+
   document.querySelector(".page").appendChild(grid);
 }
 
-// ----------------- Product Detail View -----------------
 // ----------------- Product Detail Overlay -----------------
 function openProductDetail(p){
-    // Remove any existing overlay
-    const existing = document.querySelector(".product-detail-overlay");
-    if(existing) existing.remove();
+  // Remove existing overlay
+  const existing = document.querySelector(".product-detail-overlay");
+  if(existing) existing.remove();
 
-    // Create overlay
-    const overlay = document.createElement("div");
-    overlay.className = "product-detail-overlay";
-    overlay.innerHTML = `
-    <div class="product-detail-page">
-      <button class="close-detail">✖</button>
-      <div class="product-images">
-        <img src="${p.img}" alt="${p.title}" class="main-img">
-        ${p.gallery ? p.gallery.map(img => `<img src="${img}" class="thumb-img">`).join('') : ''}
-      </div>
-      <div class="product-info">
-        <h2>${p.title}</h2>
-        <p class="price">Rs.${p.price}</p>
-        <p class="stock">${p.stock>0 ? '✅ In Stock' : '❌ Out of Stock'}</p>
-        <p class="desc">${p.desc || 'No description available.'}</p>
-        <div class="actions">
-          <button class="btn add-cart-btn">Add to Cart 🛒</button>
-          <a href="https://wa.me/923444318078?text=I'm%20interested%20in%20${encodeURIComponent(p.title)}" target="_blank" class="btn whatsapp-btn">WhatsApp 📱</a>
-          <button class="btn close-btn">Close</button>
+  // Create overlay
+  const overlay = document.createElement("div");
+  overlay.className = "product-detail-overlay";
+
+  overlay.innerHTML = `
+    <div class="product-detail">
+      <button class="close-btn" style="align-self:flex-end;font-size:18px;padding:5px 10px;">✖</button>
+      <div class="detail-content">
+        <div class="detail-img">
+          <img src="${p.img}" alt="${p.title}">
         </div>
-        <div class="pro-features">
-          <h4>Pro Features:</h4>
-          <ul>
-            <li>High quality images</li>
-            <li>Fast delivery</li>
-            <li>Easy returns</li>
-            <li>Secure payment options</li>
-          </ul>
+        <div class="detail-info">
+          <h2>${p.title}</h2>
+          <p class="stock">${p.stock>0 ? '✅ In Stock' : '❌ Out of Stock'}</p>
+          <p class="desc">${p.desc || 'No description available.'}</p>
+          <div class="actions" style="margin-top:auto; justify-content:flex-end;">
+            <a href="https://wa.me/923444318078?text=I'm%20interested%20in%20${encodeURIComponent(p.title)}" target="_blank" class="btn whatsapp-btn" style="background:#25D366;">WhatsApp 📱</a>
+            <button class="btn add-cart-btn" style="background:#ff6a00;">Add to Cart 🛒</button>
+          </div>
         </div>
       </div>
     </div>
-    `;
-    document.body.appendChild(overlay);
+  `;
 
-    // Event listeners
-    overlay.querySelector(".close-detail").addEventListener("click", () => overlay.remove());
-    overlay.querySelector(".close-btn").addEventListener("click", () => overlay.remove());
-    overlay.querySelector(".add-cart-btn").addEventListener("click", () => addToCart(p));
+  document.body.appendChild(overlay);
 
-    // Optional: click thumbnail to change main image
-    overlay.querySelectorAll(".thumb-img").forEach(img => {
-        img.addEventListener("click", e => {
-            overlay.querySelector(".main-img").src = e.target.src;
-        });
-    });
+  // Event listeners
+  overlay.querySelector(".close-btn").addEventListener("click", () => overlay.remove());
+  overlay.querySelector(".add-cart-btn").addEventListener("click", () => addToCart(p));
 }
+
+
+
 
 // ----------------- Sidebar & Category Filter -----------------
 document.getElementById('menuToggle').addEventListener('click',()=>document.getElementById('sidebar').classList.add('active'));
