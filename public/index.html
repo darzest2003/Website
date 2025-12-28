@@ -402,12 +402,12 @@ const orderData = {
         quantity: item.quantity
     }))
 };
-
-fetch(`${API_BASE}/api/addOrder`, {
+fetch(`${API_BASE}/api/orders`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(orderData)
 })
+
 .then(res => res.json())
 .then(data => console.log("Order saved:", data))
 .catch(err => console.error("Failed to save order:", err));
