@@ -17,6 +17,25 @@
     <li data-section="analytics">Analytics</li>
   </ul>
 </aside>
+  // section html
+  <section id="products" class="admin-section active">
+  <!-- existing add product UI -->
+</section>
+
+<section id="orders" class="admin-section">
+  <h2>Orders</h2>
+  <div id="ordersList"></div>
+</section>
+
+<section id="address" class="admin-section">
+  <h2>Address Book</h2>
+  <div id="addressList"></div>
+</section>
+
+<section id="analytics" class="admin-section">
+  <h2>Quick Stats</h2>
+  <div id="stats"></div>
+</section>
   
 
 <script>
@@ -65,25 +84,7 @@ if (sessionStorage.getItem("adminLoggedIn") !== "true") {
   <h2>Products</h2>
   <ul id="products"></ul>
 </section>
-  // section html
-  <section id="products" class="admin-section active">
-  <!-- existing add product UI -->
-</section>
-
-<section id="orders" class="admin-section">
-  <h2>Orders</h2>
-  <div id="ordersList"></div>
-</section>
-
-<section id="address" class="admin-section">
-  <h2>Address Book</h2>
-  <div id="addressList"></div>
-</section>
-
-<section id="analytics" class="admin-section">
-  <h2>Quick Stats</h2>
-  <div id="stats"></div>
-</section>
+  
 
 <script>
 const API = "https://cppbackened.onrender.com";
