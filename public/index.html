@@ -407,11 +407,25 @@ fetch(`${API_BASE}/api/orders`, {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(orderData)
 })
-
 .then(res => res.json())
-.then(data => console.log("Order saved:", data))
-.catch(err => console.error("Failed to save order:", err));
+.then(data => {
+    console.log("Order saved:", data);
 
+    // 🔔 WhatsApp Notification
+    const waMessage = `
+*🛒 NEW ORDER RECEIVED*
+
+Order ID: ${orderId}
+Name: ${name}
+Phone: ${contact}
+Total: Rs.${total}
+Payment: ${payment}
+`;
+
+    const waUrl = `https://wa.me/923444318078?text=${encodeURIComponent(waMessage)}`;
+    window.open(waUrl, "_blank");
+})
+.catch(err => console.error("Failed to save order:", err));
         if(payment==="easypaisa"){
             window.open(`https://www.easypaisa.com.pk/pay/03187900076?amount=${total}&reference=${orderId}`,"_blank");
         } else if(payment==="jazzcash"){
