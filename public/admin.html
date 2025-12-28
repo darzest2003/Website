@@ -86,35 +86,38 @@ function logout(){
 }
 
 // ---------------- Orders ----------------
-async function loadOrders(){
-  const res = await fetch(`${API}/api/orders`);
-  const data = await res.json();
-  data.reverse();
+async function loadOrders() {
+  try {
+    const res = await fetch("/api/orders");
+    const orders = await res.json(); // expects a proper JSON array
 
-  let total = 0;
-  document.getElementById("orderCount").textContent = data.length;
+    let total = 0;
+    document.getElementById("orderCount").textContent = orders.length;
 
-  const tbody = document.getElementById("ordersBody");
-  tbody.innerHTML = "";
+    const tbody = document.getElementById("ordersBody");
+    tbody.innerHTML = "";
 
-  data.forEach(o=>{
-    total += parseFloat(o.totalAmount || 0);
-    tbody.innerHTML += `
-      <tr>
-        <td>${o.id}</td>
-        <td>${o.name}</td>
-        <td>${o.contact}</td>
-        <td>${o.payment}</td>
-        <td>${o.totalAmount}</td>
-        <td>
-          <button onclick="viewLabel('${o.id}')">View</button>
-          <button onclick="downloadLabel('${o.id}')">Download</button>
-        </td>
-      </tr>
-    `;
-  });
+    // Display orders newest first
+    orders.reverse().forEach(o => {
+      total += parseFloat(o.totalAmount || 0);
+      tbody.innerHTML += `
+        <tr>
+          <td>${o.id}</td>
+          <td>${o.name}</td>
+          <td>${o.contact}</td>
+          <td>${o.payment}</td>
+          <td>${o.totalAmount}</td>
+          <td>
+            <button onclick="viewLabel('${o.id}')">View</button>
+            <button onclick="downloadLabel('${o.id}')">Download</button>
+          </td>
+        </tr>`;
+    });
 
-  document.getElementById("revenue").textContent = total;
+    document.getElementById("revenue").textContent = total;
+  } catch (err) {
+    console.error("Failed to load orders:", err);
+  }
 }
 
 function viewLabel(id){
