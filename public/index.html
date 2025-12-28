@@ -136,6 +136,15 @@
 const API_BASE = "https://cppbackened.onrender.com";
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
 
+
+  // ---------- Shipping Charges Logic ----------
+function calculateShipping(total) {
+    if(total < 1500) return 180;
+    else if(total >= 1500 && total <= 5000) return 150;
+    else return 0; // Free shipping
+}
+
+  
 // ----------------- Cart Functions -----------------
 function updateCartCount() { document.querySelector(".cart-count").textContent = cart.length; }
 function saveCart() { localStorage.setItem("cart", JSON.stringify(cart)); updateCartCount(); renderCartItems(); }
@@ -149,20 +158,44 @@ function addToCart(p) {
 function changeQuantity(i,d){ cart[i].quantity+=d; if(cart[i].quantity<=0) cart.splice(i,1); saveCart(); }
 function removeFromCart(i){ cart.splice(i,1); saveCart(); }
 function renderCartItems(){ 
-    const container=document.getElementById("cartItems"); 
-    const total=document.getElementById("cartTotal"); 
-    container.innerHTML=""; 
-    let sum=0; 
-    cart.forEach((item,i)=>{ 
-        const div=document.createElement("div"); 
-        div.className="cart-item"; 
-        div.innerHTML=`<img src="${item.img}" alt="${item.title}"><div class="cart-item-details"><h4>${item.title}</h4><p>Rs.${item.price}</p><div class="qty-control"><button onclick="changeQuantity(${i},-1)">➖</button><span>${item.quantity}</span><button onclick="changeQuantity(${i},1)">➕</button></div></div><button class="remove-btn" onclick="removeFromCart(${i})">🗑️</button>`; 
-        container.appendChild(div); 
-        sum+=item.price*item.quantity; 
-    }); 
-    total.textContent=sum; 
-}
+    const container = document.getElementById("cartItems"); 
+    const totalEl = document.getElementById("cartTotal"); 
+    container.innerHTML = ""; 
+    let sum = 0; 
 
+    cart.forEach((item,i)=>{ 
+        const div = document.createElement("div"); 
+        div.className = "cart-item"; 
+        div.innerHTML = `
+            <img src="${item.img}" alt="${item.title}">
+            <div class="cart-item-details">
+                <h4>${item.title}</h4>
+                <p>Rs.${item.price}</p>
+                <div class="qty-control">
+                    <button onclick="changeQuantity(${i},-1)">➖</button>
+                    <span>${item.quantity}</span>
+                    <button onclick="changeQuantity(${i},1)">➕</button>
+                </div>
+            </div>
+            <button class="remove-btn" onclick="removeFromCart(${i})">🗑️</button>`; 
+        container.appendChild(div); 
+        sum += item.price * item.quantity; 
+    });
+
+    const shipping = calculateShipping(sum);
+    const finalTotal = sum + shipping;
+
+    totalEl.textContent = finalTotal;
+
+    // Display shipping info
+    let shippingEl = document.getElementById("cartShipping");
+    if(!shippingEl){
+        shippingEl = document.createElement("p");
+        shippingEl.id = "cartShipping";
+        totalEl.parentNode.insertBefore(shippingEl, totalEl.nextSibling);
+    }
+    shippingEl.textContent = shipping > 0 ? `Shipping: Rs.${shipping}` : "Free Shipping!";
+}
 // ----------------- Cart Sidebar -----------------
 document.querySelector(".cart-btn").addEventListener("click",()=>document.getElementById("cartSidebar").classList.add("active"));
 document.getElementById("closeCart").addEventListener("click",()=>document.getElementById("cartSidebar").classList.remove("active"));
