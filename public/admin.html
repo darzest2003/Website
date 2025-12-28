@@ -58,17 +58,15 @@ if (sessionStorage.getItem("adminLoggedIn") !== "true") {
   </table>
 </section>
 
-<section class="panel">
+<section id="products" class="panel admin-section active">
   <h2>Add Product</h2>
   <input id="pTitle" placeholder="Product Title">
   <input id="pPrice" type="number" placeholder="Price">
   <input id="pStock" type="number" placeholder="Stock">
   <input id="pImg" placeholder="Image URL (productname.jpg)">
   <button onclick="addProduct()">Add Product</button>
-</section>
 
-<section class="panel">
-  <h2>Products</h2>
+  <h2 style="margin-top:20px">Products</h2>
   <ul id="products"></ul>
 </section>
   
