@@ -17,20 +17,7 @@
     <li data-section="analytics">Analytics</li>
   </ul>
 </aside>
-  // section html
-  <section id="products" class="admin-section active">
-  <!-- existing add product UI -->
-</section>
-
-<section id="orders" class="admin-section">
-  <h2>Orders</h2>
-  <div id="ordersList"></div>
-</section>
-
-<section id="address" class="admin-section">
-  <h2>Address Book</h2>
-  <div id="addressList"></div>
-</section>
+  
 
 <section id="analytics" class="admin-section">
   <h2>Quick Stats</h2>
@@ -207,6 +194,26 @@ async function deleteProduct(id){
 loadOrders();
 loadProducts();
 </script>
+<script>
+  const adminToggle = document.querySelector('.admin-menu-toggle');
+  const adminSidebar = document.querySelector('.admin-sidebar');
+  const adminItems = document.querySelectorAll('.admin-sidebar li');
+  const adminSections = document.querySelectorAll('.admin-section');
 
+  // Toggle sidebar
+  adminToggle.addEventListener('click', () => {
+    adminSidebar.classList.toggle('active');
+  });
+
+  // Switch sections
+  adminItems.forEach(item => {
+    item.addEventListener('click', () => {
+      adminSections.forEach(sec => sec.classList.remove('active'));
+      const target = document.getElementById(item.dataset.section);
+      if (target) target.classList.add('active');
+      adminSidebar.classList.remove('active');
+    });
+  });
+</script>
 </body>
 </html>
