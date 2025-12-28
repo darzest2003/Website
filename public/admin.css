@@ -122,3 +122,15 @@ input {
 .admin-section.active {
   display: block;
 }
+/* ===== Fix Sidebar Toggle ===== */
+.topbar {
+  margin-left: 0; /* remove any shift when sidebar is hidden */
+}
+
+.admin-sidebar {
+  left: -260px !important; /* ensure it's hidden by default */
+}
+
+.admin-sidebar.active {
+  left: 0 !important; /* ensure it appears on toggle */
+}
