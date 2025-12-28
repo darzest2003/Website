@@ -6,6 +6,17 @@
   <link rel="stylesheet" href="admin.css">
 </head>
 <body>
+  <button class="admin-menu-toggle">☰</button>
+
+<aside class="admin-sidebar">
+  <h3>Admin Panel</h3>
+  <ul>
+    <li data-section="products">Products</li>
+    <li data-section="orders">Orders</li>
+    <li data-section="address">Address Book</li>
+    <li data-section="analytics">Analytics</li>
+  </ul>
+</aside>
 
 <script>
 if (sessionStorage.getItem("adminLoggedIn") !== "true") {
