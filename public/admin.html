@@ -88,7 +88,7 @@ function logout(){
 // ---------------- Orders ----------------
 async function loadOrders() {
   try {
-    const res = await fetch("/api/orders");
+    const res = await fetch(`${API}/api/orders`);
     const orders = await res.json(); // expects a proper JSON array
 
     let total = 0;
