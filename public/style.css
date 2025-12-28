@@ -883,3 +883,13 @@ flex-direction: column;
   height: 150px;
   object-fit: cover;
 }
+/* =========================
+   MOBILE 2x2 PRODUCT GRID FIX
+========================= */
+@media (max-width: 768px) {
+  .grid,
+  .featured-product {
+    grid-template-columns: repeat(2, 1fr) !important; /* 2 per row on mobile */
+    gap: 15px;
+  }
+}
