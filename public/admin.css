@@ -123,3 +123,6 @@ input {
 .admin-section.active {
   display: block;
 }
+.topbar {
+  margin-left: 60px;
+}
