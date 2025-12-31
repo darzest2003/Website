@@ -549,7 +549,11 @@ sqlite3_exec(g_db, "COMMIT;", nullptr, nullptr, nullptr);
 
 // ------------------- Utilities (unchanged) -------------------
 string generateProductID() { return "p" + to_string(++currentProductID); }
-string generateOrderID() { return "O" + to_string(++currentOrderID); }
+// ------------------- Thread-safe Order ID generation -------------------
+string generateOrderID() {
+    lock_guard<mutex> lock(g_storage_mutex); // protect currentOrderID
+    return "O" + to_string(++currentOrderID);
+}
 
 // ------------------- Simple JSON parser for flat keys -------------------
 map<string,string> parseJson(const string &body) {
