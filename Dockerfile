@@ -4,13 +4,11 @@
 FROM ubuntu:22.04 AS builder
 
 RUN apt-get update && apt-get install -y \
-    g++ cmake make git libsqlite3-dev \
+    g++ cmake make git libpq-dev \
     && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 COPY server.cpp .
-
-RUN g++ -std=c++17 -O3 -pthread server.cpp -o server -lsqlite3 \
+RUN g++ -std=c++17 -O3 -pthread server.cpp -o server -lpq \
     && strip server
 
 
@@ -20,9 +18,8 @@ RUN g++ -std=c++17 -O3 -pthread server.cpp -o server -lsqlite3 \
 FROM ubuntu:22.04
 
 RUN apt-get update && apt-get install -y \
-    ca-certificates sqlite3 \
+    ca-certificates libpq5 \
     && rm -rf /var/lib/apt/lists/*
-
 RUN useradd -m appuser
 
 WORKDIR /app
