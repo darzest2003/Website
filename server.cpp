@@ -564,7 +564,7 @@ if (c == '"') { st = IN_KEY; key.clear(); esc=false; }
 } else if (st == IN_KEY) {
 if (c == '"' && !esc) { st = AFTER_KEY; }
 else {
-if (c == '\' && !esc) esc = true; else { key.push_back(c); esc=false; }
+if (c == '\\' && !esc) esc = true; else { key.push_back(c); esc=false; }
 }
 } else if (st == AFTER_KEY) {
 if (c == ':') {
