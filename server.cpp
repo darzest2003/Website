@@ -422,8 +422,8 @@ void loadProducts() {
 lock_guard<mutex> lock(g_storage_mutex);
 products.clear();
 if (!g_db) return;
-const char sql = "SELECT id, title, price, img, stock FROM products ORDER BY id;";
-sqlite3_stmt stmt = nullptr;
+const char *sql = "SELECT id, title, price, img, stock FROM products ORDER BY id;";
+sqlite3_stmt *stmt = nullptr;
 if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
 while (sqlite3_step(stmt) == SQLITE_ROW) {
 Product p;
@@ -477,8 +477,8 @@ void loadOrders() {
 lock_guard<mutex> lock(g_storage_mutex);
 orders.clear();
 if (!g_db) return;
-const char sql = "SELECT id, product, name, contact, email, address, productPrice, deliveryCharges, totalAmount, payment, createdAt FROM orders ORDER BY id;";
-sqlite3_stmt stmt = nullptr;
+const char *sql = "SELECT id, product, name, contact, email, address, productPrice, deliveryCharges, totalAmount, payment, createdAt FROM orders ORDER BY id;";
+sqlite3_stmt *stmt = nullptr;
 if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
 while (sqlite3_step(stmt) == SQLITE_ROW) {
 Order o;
