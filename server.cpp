@@ -515,7 +515,35 @@ if (num > currentOrderID) currentOrderID = num;
 }
 sqlite3_finalize(stmt);
 }
+void saveOrder(const Order &o) {
+    lock_guard<mutex> lock(g_storage_mutex);
+    if (!g_db) return;
 
+    const char *sql =
+        "INSERT INTO orders "
+        "(id, product, name, contact, email, address, productPrice, deliveryCharges, totalAmount, payment, createdAt) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+
+    sqlite3_stmt *stmt = nullptr;
+
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, o.id.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 2, o.product.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 3, o.name.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 4, o.contact.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 5, o.email.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 6, o.address.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 7, o.productPrice.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 8, o.deliveryCharges.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 9, o.totalAmount.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 10, o.payment.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 11, o.createdAt.c_str(), -1, SQLITE_TRANSIENT);
+
+        sqlite3_step(stmt);
+    }
+
+    sqlite3_finalize(stmt);
+}
 // Persist in-memory orders to DB (simple: delete all and insert)
 void saveOrders() {
 lock_guard<mutex> lock(g_storage_mutex);
