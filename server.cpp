@@ -864,11 +864,11 @@ if (path.find("/api/addProduct") == 0 && method == "POST") {
     }  
     if (p.img.empty()) p.img = "uploads/product1.jpg"; // stored under /public/uploads/  
 
-    {  
-        lock_guard<mutex> lock(g_storage_mutex);  
-        products.push_back(p);  
-        saveProducts();  
-    }  
+    {
+    lock_guard<mutex> lock(g_storage_mutex);
+    orders.push_back(o);
+    saveOrder(o);   // ✅ insert ONLY this order
+    }
     sendResponse(clientSocket, "200 OK", "text/plain", "Product added successfully");  
     close(clientSocket);  
     return;  
