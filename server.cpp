@@ -1231,15 +1231,12 @@ while (g_running.load()) {
     socklen_t clientLen = sizeof(clientAddr);  
     int clientSock = accept(server_fd, (struct sockaddr *)&clientAddr, &clientLen);  
     if (clientSock < 0) {  
-        if (!g_running.load()) {  
-            // shutdown requested  
-            break;  
-        }  
+        if (!g_running.load()) break; // shutdown requested  
         perror("accept");  
         continue;  
     }  
 
-    // Set TCP_NODELAY on accepted socket for lower latency  
+    // Set TCP_NODELAY for lower latency  
     int flag = 1;  
     setsockopt(clientSock, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(int));  
 
@@ -1249,43 +1246,35 @@ while (g_running.load()) {
     string cli = string(client_ip) + ":" + to_string(ntohs(clientAddr.sin_port));  
     LOGI(string("Accepted connection from ") + cli);  
 
-    // Enqueue client handler into threadpool  
+    // Enqueue client handler into threadpool
     try {  
-        pool.enqueue([clientSock, cli]{  
-            try {  
-                // Wrap original handler and log exceptions  
-                handleClient(clientSock);  
-            } catch (const exception &ex) {  
-                LOGE(string("Exception handling client ") + cli + " : " + ex.what());  
-                close(clientSock);  
-            } catch (...) {  
-                LOGE(string("Unknown exception handling client ") + cli);  
-                close(clientSock);  
-            }  
-        });  
-    } catch (const exception &ex) {  
-        LOGE(string("Failed to enqueue task: ") + ex.what());  
-        close(clientSock);  
-    }  
-}  
+        pool.enqueue([clientSock]() {
+            handleClient(clientSock);
+        });
+    } catch (const std::exception &ex) {
+        LOGE(string("Failed to enqueue client handler: ") + ex.what());
+        close(clientSock); // avoid leaking socket
+    }
+}
 
-LOGI("Server shutting down, saving data...");  
-// Persist data cleanly  
-saveOrders();  
-saveProducts();  
+// Shutdown
+LOGI("Server shutting down...");
 
-// ThreadPool destructor will join workers  
-g_threadpool_ptr = nullptr;  
+// Close server socket if not already closed
+if (g_server_fd >= 0) {
+    close(g_server_fd);
+    g_server_fd = -1;
+}
 
-if (g_server_fd >= 0) close(g_server_fd);  
+// Give thread pool destructor a chance to finish
+g_threadpool_ptr = nullptr;
 
-if (g_db) {  
-    sqlite3_close(g_db);  
-    g_db = nullptr;  
-    LOGI("Closed SQLite database.");  
-}  
+// Close SQLite DB
+if (g_db) {
+    sqlite3_close(g_db);
+    g_db = nullptr;
+}
 
-LOGI("Shutdown complete");  
+LOGI("Server exited cleanly.");
 return 0;
-
 }
