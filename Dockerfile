@@ -3,27 +3,26 @@
 # =========================
 FROM ubuntu:22.04 AS builder
 
-# Install build tools and PostgreSQL development library
+# Install build tools + PostgreSQL dev + SQLite dev
 RUN apt-get update && apt-get install -y \
-    g++ cmake make git libpq-dev \
+    g++ cmake make git libpq-dev libsqlite3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY server.cpp .
 
-# Compile your server with PostgreSQL library
-RUN g++ -std=c++17 -O3 -pthread server.cpp -o server -lpq \
+# Compile your server with PostgreSQL and SQLite libraries
+RUN g++ -std=c++17 -O3 -pthread server.cpp -o server -lpq -lsqlite3 \
     && strip server
-
 
 # =========================
 # 2️⃣ Runtime Stage
 # =========================
 FROM ubuntu:22.04
 
-# Install runtime dependencies including PostgreSQL client
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y \
-    ca-certificates libpq5 \
+    ca-certificates libpq5 libsqlite3-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
@@ -39,6 +38,11 @@ USER appuser
 
 # Expose your application port
 EXPOSE 8080
+
+# Environment variables
+ENV PORT=8080
+ENV MAX_WORKERS=4
+ENV DATA_DIR=/var/data
 
 # Environment variables for Render PostgreSQL
 ENV PORT=8080
