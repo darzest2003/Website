@@ -1130,6 +1130,7 @@ if (isBinary) {
 close(clientSocket);
 
 }
+}
 
 // ------------------- Main -------------------
 int main() {
