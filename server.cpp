@@ -427,7 +427,8 @@ sqlite3_stmt *stmt = nullptr;
 if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
 while (sqlite3_step(stmt) == SQLITE_ROW) {
 Product p;
-const unsigned char c0 = sqlite3_column_text(stmt, 0);
+const unsigned char *c0 = sqlite3_column_text(stmt, 0);
+const unsigned char *c1 = sqlite3_column_text(stmt, 1);
 const unsigned char c1 = sqlite3_column_text(stmt, 1);
 const unsigned char* c3 = sqlite3_column_text(stmt, 3);
 p.id = c0 ? (const char*)c0 : "";
@@ -482,8 +483,8 @@ sqlite3_stmt *stmt = nullptr;
 if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
 while (sqlite3_step(stmt) == SQLITE_ROW) {
 Order o;
-const unsigned char c0 = sqlite3_column_text(stmt, 0);
-const unsigned char c1 = sqlite3_column_text(stmt, 1);
+const unsigned char *c0 = sqlite3_column_text(stmt, 0);
+const unsigned char *c1 = sqlite3_column_text(stmt, 1);
 const unsigned char* c2 = sqlite3_column_text(stmt, 2);
 const unsigned char* c3 = sqlite3_column_text(stmt, 3);
 const unsigned char* c4 = sqlite3_column_text(stmt, 4);
@@ -683,13 +684,7 @@ return "";
 string htmlEscape(const string &s) {
 string out;
 for (char c : s) {
-switch (c) {
-case '&': out += "&amp;"; break;
-case '<': out += "&lt;"; break;
-case '>': out += "&gt;"; break;
-case '"': out += "&quot;"; break;
-case '\'': out += "&#39;"; break;
-}
+default: out.push_back(c); break;
 }
 return out;
 }
