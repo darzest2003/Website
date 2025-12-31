@@ -1246,18 +1246,18 @@ while (g_running.load()) {
     string cli = string(client_ip) + ":" + to_string(ntohs(clientAddr.sin_port));  
     LOGI(string("Accepted connection from ") + cli);  
 
-    // Enqueue client handler into threadpool
+    // Enqueue client handler into threadpool  
     try {  
-        pool.enqueue([clientSock]() {
-            handleClient(clientSock);
+        pool.enqueue([clientSock]() {  // capture socket by value
+            handleClient(clientSock);  // handle request
         });
     } catch (const std::exception &ex) {
         LOGE(string("Failed to enqueue client handler: ") + ex.what());
-        close(clientSock); // avoid leaking socket
+        close(clientSock); // avoid leaking socket if enqueue fails
     }
 }
 
-// Shutdown
+// Graceful shutdown after exiting accept loop
 LOGI("Server shutting down...");
 
 // Close server socket if not already closed
@@ -1266,7 +1266,7 @@ if (g_server_fd >= 0) {
     g_server_fd = -1;
 }
 
-// Give thread pool destructor a chance to finish
+// Let thread pool finish and destroy
 g_threadpool_ptr = nullptr;
 
 // Close SQLite DB
