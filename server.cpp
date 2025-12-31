@@ -901,7 +901,37 @@ if (path.find("/api/deleteProduct") == 0 && method == "POST") {
     close(clientSocket);  
     return;  
 }  
+// GET /api/orders
+if (path.find("/api/orders") == 0 && method == "GET") {
+    stringstream ss;
+    ss << "[";
 
+    {
+        lock_guard<mutex> lock(g_storage_mutex);
+        for (size_t i = 0; i < orders.size(); ++i) {
+            auto &o = orders[i];
+            ss << "{"
+               << "\"id\":\"" << htmlEscape(o.id) << "\","
+               << "\"product\":\"" << htmlEscape(o.product) << "\","
+               << "\"name\":\"" << htmlEscape(o.name) << "\","
+               << "\"contact\":\"" << htmlEscape(o.contact) << "\","
+               << "\"email\":\"" << htmlEscape(o.email) << "\","
+               << "\"address\":\"" << htmlEscape(o.address) << "\","
+               << "\"productPrice\":\"" << htmlEscape(o.productPrice) << "\","
+               << "\"deliveryCharges\":\"" << htmlEscape(o.deliveryCharges) << "\","
+               << "\"totalAmount\":\"" << htmlEscape(o.totalAmount) << "\","
+               << "\"payment\":\"" << htmlEscape(o.payment) << "\","
+               << "\"createdAt\":\"" << htmlEscape(o.createdAt) << "\""
+               << "}";
+            if (i + 1 < orders.size()) ss << ",";
+        }
+    }
+
+    ss << "]";
+    sendResponse(clientSocket, "200 OK", "application/json", ss.str());
+    close(clientSocket);
+    return;
+}
 // POST /api/orders  
 if (path.find("/api/orders") == 0 && method == "POST") {  
     // Accept JSON body that contains products (array of {product,qty}), plus name/contact/email/address  
