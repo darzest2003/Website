@@ -866,13 +866,13 @@ if (path.find("/api/addProduct") == 0 && method == "POST") {
 
     {
     lock_guard<mutex> lock(g_storage_mutex);
-    orders.push_back(o);
-    saveOrder(o);   // ✅ insert ONLY this order
-    }
-    sendResponse(clientSocket, "200 OK", "text/plain", "Product added successfully");  
-    close(clientSocket);  
-    return;  
-}  
+    products.push_back(p);
+    saveProducts();
+}
+
+sendResponse(clientSocket, "200 OK", "text/plain", "Product added successfully");
+close(clientSocket);
+return;
 
 // POST /api/deleteProduct  
 if (path.find("/api/deleteProduct") == 0 && method == "POST") {  
@@ -996,55 +996,8 @@ if (path.find("/api/orders") == 0 && method == "POST") {
     return;  
 }  
 
-// POST /api/orders  (FIXED – frontend compatible)
-if (path.find("/api/orders") == 0 && method == "POST") {
 
-    auto kv = parseJson(body);
-    if (kv.empty()) kv = parseFormUrlEncoded(body);
 
-    Order o;
-    o.id = kv.count("id") ? kv["id"] : generateOrderID();
-    o.name = kv["name"];
-    o.contact = kv["contact"];
-    o.email = kv.count("email") ? kv["email"] : "";
-    o.address = kv["address"];
-    o.payment = kv.count("payment") ? kv["payment"] : "cod";
-    o.totalAmount = kv["totalAmount"];
-    o.deliveryCharges = kv.count("shipping") ? kv["shipping"] : "0";
-    o.createdAt = nowISO8601();
-
-    // ---- Build product summary from frontend items[] ----
-    string summary;
-    size_t pos = 0;
-    while ((pos = body.find("\"title\":", pos)) != string::npos) {
-        pos = body.find('"', pos + 8) + 1;
-        size_t end = body.find('"', pos);
-        string title = body.substr(pos, end - pos);
-
-        size_t qPos = body.find("\"quantity\":", end);
-        int qty = stoi(body.substr(qPos + 11));
-
-        summary += title + " x" + to_string(qty) + ", ";
-        pos = qPos;
-    }
-    if (!summary.empty()) summary.erase(summary.size() - 2);
-
-    o.product = summary.empty() ? "Items" : summary;
-    o.productPrice = o.totalAmount;
-
-    // ---- SAVE ----
-    saveOrder(o);
-
-    sendResponse(
-        clientSocket,
-        "200 OK",
-        "application/json",
-        "{\"status\":\"success\",\"orderId\":\"" + o.id + "\"}"
-    );
-
-    close(clientSocket);
-    return;
-}
 
 // GET /api/shippingLabel?id=ORDER_ID  
 if (path.find("/api/shippingLabel") == 0 && method == "GET") {  
