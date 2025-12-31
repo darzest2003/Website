@@ -429,7 +429,6 @@ while (sqlite3_step(stmt) == SQLITE_ROW) {
 Product p;
 const unsigned char *c0 = sqlite3_column_text(stmt, 0);
 const unsigned char *c1 = sqlite3_column_text(stmt, 1);
-const unsigned char c1 = sqlite3_column_text(stmt, 1);
 const unsigned char* c3 = sqlite3_column_text(stmt, 3);
 p.id = c0 ? (const char*)c0 : "";
 p.title = c1 ? (const char*)c1 : "";
@@ -592,7 +591,7 @@ if (c == '"' && !esc) {
 res[key] = val;
 st = NONE;
 } else {
-if (c == '\' && !esc) esc = true; else { val.push_back(c); esc=false; }
+if (c == '\\' && !esc) esc = true; else { val.push_back(c); esc=false; }
 }
 }
 }
@@ -684,7 +683,7 @@ return "";
 string htmlEscape(const string &s) {
 string out;
 for (char c : s) {
-default: out.push_back(c); break;
+    out.push_back(c);
 }
 return out;
 }
