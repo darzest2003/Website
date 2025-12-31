@@ -4,6 +4,7 @@
 // Compile with: g++ server.cpp -o server -pthread -lsqlite3
 
 #include <iostream>
+#include <functional>
 #include <netinet/tcp.h>
 #include <cstdlib>
 #include <fstream>
@@ -683,12 +684,11 @@ string htmlEscape(const string &s) {
 string out;
 for (char c : s) {
 switch (c) {
-case '&': out += "&"; break;
-case '<': out += "<"; break;
-case '>': out += ">"; break;
-case '"': out += """; break;
-case ''': out += "'"; break;
-default: out += c;
+case '&': out += "&amp;"; break;
+case '<': out += "&lt;"; break;
+case '>': out += "&gt;"; break;
+case '"': out += "&quot;"; break;
+case '\'': out += "&#39;"; break;
 }
 }
 return out;
@@ -701,14 +701,16 @@ unsigned long hash = 1469598103934665603ULL;
 for (char c : seed) hash = (hash ^ (unsigned long)c) * 1099511628211ULL;
 // create pattern
 stringstream ss;
-ss << "<div style="display:flex;align-items:flex-end;height:80px;gap:2px;padding:8px;background:#fff;border:1px solid #ddd;">\n";
+ss << "<div style=\"display:flex;align-items:flex-end;height:80px;gap:2px;padding:8px;background:#fff;border:1px solid #ddd;\">\n";
 // produce 40 bars
 for (int i=0;i<40;i++) {
 // deterministic pseudo-random height based on hash and i
 hash = hash * 6364136223846793005ULL + 1442695040888963407ULL + i;
 int h = (int)(20 + (hash % 60)); // 20..79
 int w = (int)(2 + (hash % 4));   // 2..5 px
-ss << "<div style=\"width:" << w << "px;height:" << h << "px;background:#000;display:inline-block;\"></div>\n";
+ss << "<div style=\"width:" << w
+   << "px;height:" << h
+   << "px;background:#000;display:inline-block;\"></div>\n";
 }
 ss << "</div>\n";
 return ss.str();
