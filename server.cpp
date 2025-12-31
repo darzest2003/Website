@@ -708,7 +708,7 @@ for (int i=0;i<40;i++) {
 hash = hash * 6364136223846793005ULL + 1442695040888963407ULL + i;
 int h = (int)(20 + (hash % 60)); // 20..79
 int w = (int)(2 + (hash % 4));   // 2..5 px
-ss << "<div style="width:" << w << "px;height:" << h << "px;background:#000;display:inline-block;"></div>\n";
+ss << "<div style=\"width:" << w << "px;height:" << h << "px;background:#000;display:inline-block;\"></div>\n";
 }
 ss << "</div>\n";
 return ss.str();
