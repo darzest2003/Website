@@ -34,6 +34,9 @@ COPY --from=builder /app/server .
 # Persistent disk directory
 RUN mkdir -p /var/data && chown -R appuser:appuser /var/data
 
+# Add static files to runtime stage
+COPY public /app/public
+
 USER appuser
 
 # Expose your application port
