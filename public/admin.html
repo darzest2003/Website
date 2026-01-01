@@ -99,20 +99,21 @@ async function loadOrders() {
 
     // Display orders newest first
     orders.reverse().forEach(o => {
-      total += parseFloat(o.totalAmount || 0);
-      tbody.innerHTML += `
-        <tr>
-          <td>${o.id}</td>
-          <td>${o.name}</td>
-          <td>${o.contact}</td>
-          <td>${o.payment}</td>
-          <td>${o.totalAmount}</td>
-          <td>
-            <button onclick="viewLabel('${o.id}')">View</button>
-            <button onclick="downloadLabel('${o.id}')">Download</button>
-          </td>
-        </tr>`;
-    });
+  const amount = Number(o.totalAmount) || 0;  // Ensure it's a number
+  total += amount;
+  tbody.innerHTML += `
+    <tr>
+      <td>${o.id}</td>
+      <td>${o.name}</td>
+      <td>${o.contact}</td>
+      <td>${o.payment}</td>
+      <td>Rs.${amount.toFixed(2)}</td>
+      <td>
+        <button onclick="viewLabel('${o.id}')">View</button>
+        <button onclick="downloadLabel('${o.id}')">Download</button>
+      </td>
+    </tr>`;
+});
 
     document.getElementById("revenue").textContent = total;
   } catch (err) {
