@@ -454,13 +454,7 @@ Payment: ${payment}`;
         window.open(`https://www.jazzcash.com.pk/pay/03187900076?amount=${total}&reference=${orderId}`,"_blank");
     }
 
-    alert("🎉 Order placed successfully!");
-    window.location.href="index.html";
-})
-.catch(err => {
-    console.error("❌ Failed to save order:", err);
-    alert("❌ Order could not be saved. Please try again.");
-});
+    
 
 // ----------------- Initialize -----------------
 loadProducts();
