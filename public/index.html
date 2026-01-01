@@ -445,20 +445,7 @@ Payment: ${payment}`;
     console.error("❌ Failed to save order:", err);
     alert("❌ Order could not be saved. Please try again.");
 });
-    // Clear cart & update UI
-    localStorage.removeItem("cart");
-    updateCartCount();
-    renderCartItems();
-
-    // WhatsApp notification
-    const waMessage = `
-*🛒 NEW ORDER RECEIVED*
-Order ID: ${orderId}
-Name: ${name}
-Phone: ${contact}
-Total: Rs.${total}
-Payment: ${payment}`;
-    window.open(`https://wa.me/923444318078?text=${encodeURIComponent(waMessage)}`, "_blank");
+    
 
     // Payment redirects
     if(payment==="easypaisa"){
