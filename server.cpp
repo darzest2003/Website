@@ -1256,7 +1256,6 @@ while (g_running.load()) {
         LOGE(string("Failed to enqueue client handler: ") + ex.what());
         close(clientSock); // avoid leaking socket if enqueue fails
     }
-
 }
 // Graceful shutdown after exiting accept loop
 LOGI("Server shutting down...");
