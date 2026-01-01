@@ -388,19 +388,20 @@ document.querySelector(".cart-footer .checkout-btn").addEventListener("click",()
         modal.remove();
       // ---------------- Send order to backend ----------------
 // ---------------- Send order to backend ----------------
+// ---------------- Send order to backend ----------------
 const orderData = {
     id: orderId,
     name: name,
     contact: contact,
     address: address,
     payment: payment,
-    totalAmount: total,
-    shipping: calculateShipping(parseFloat(total)),
+    totalAmount: Number(total),                 // <- ensure numeric
+    shipping: calculateShipping(Number(total)), // <- numeric
     items: cart.map(item => ({
         id: item.id,
         title: item.title,
-        price: item.price,
-        quantity: item.quantity
+        price: Number(item.price),
+        quantity: Number(item.quantity)
     }))
 };
 
@@ -414,6 +415,36 @@ fetch(`${API_BASE}/api/orders`, {
     const data = await res.json();
     console.log("✅ Order saved:", data);
 
+    // Clear cart & update UI
+    cart = [];
+    localStorage.removeItem("cart");
+    updateCartCount();
+    renderCartItems();
+
+    // WhatsApp notification
+    const waMessage = `
+*🛒 NEW ORDER RECEIVED*
+Order ID: ${orderId}
+Name: ${name}
+Phone: ${contact}
+Total: Rs.${total}
+Payment: ${payment}`;
+    window.open(`https://wa.me/923444318078?text=${encodeURIComponent(waMessage)}`, "_blank");
+
+    // Payment redirects
+    if(payment==="easypaisa"){
+        window.open(`https://www.easypaisa.com.pk/pay/03187900076?amount=${total}&reference=${orderId}`,"_blank");
+    } else if(payment==="jazzcash"){
+        window.open(`https://www.jazzcash.com.pk/pay/03187900076?amount=${total}&reference=${orderId}`,"_blank");
+    }
+
+    alert("🎉 Order placed successfully!");
+    window.location.href="index.html";
+})
+.catch(err => {
+    console.error("❌ Failed to save order:", err);
+    alert("❌ Order could not be saved. Please try again.");
+});
     // Clear cart & update UI
     localStorage.removeItem("cart");
     updateCartCount();
