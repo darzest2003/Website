@@ -1133,147 +1133,138 @@ close(clientSocket);
 
 
 // ------------------- Main -------------------
+
 int main() {
-// Enhancement: read env config before continuing
-const char *envp_port = getenv("PORT");
-const char *env_workers = getenv("MAX_WORKERS");
-const char *env_data = getenv("DATA_DIR");
+    // Enhancement: read env config before continuing
+    const char *envp_port = getenv("PORT");
+    const char *env_workers = getenv("MAX_WORKERS");
+    const char *env_data = getenv("DATA_DIR");
 
-if (env_data && strlen(env_data) > 0) {  
-    g_data_dir = string(env_data);  
-}  
-if (env_workers && strlen(env_workers) > 0) {  
-    try { g_max_workers = stoi(string(env_workers)); } catch(...) { g_max_workers = 4; }  
-} else {  
-    // fallback to hardware-concurrency if available  
-    int hc = (int)thread::hardware_concurrency();  
-    if (hc > 1) g_max_workers = min(hc, 8);  
-}  
-
-// Create data directory if missing (ensure before DB open)  
-ensureDataFolder("");  
-
-// Initialize SQLite DB  
-if (!initDatabase()) {  
-    LOGE("Could not initialize database - exiting");  
-    return 1;  
-}  
-
-// Migrate any existing text files into the DB if needed  
-migrateTextFilesIfNeeded();  
-
-// Load persisted data (from DB now)  
-loadProducts();  
-loadOrders();  
-
-// Ignore SIGPIPE so send() to closed sockets doesn't kill the process  
-signal(SIGPIPE, SIG_IGN);  
-
-// install graceful shutdown handlers  
-struct sigaction sa{};  
-sa.sa_handler = gracefulShutdown;  
-sigemptyset(&sa.sa_mask);  
-sa.sa_flags = 0;  
-sigaction(SIGINT, &sa, nullptr);  
-sigaction(SIGTERM, &sa, nullptr);  
-
-// Setup thread pool (global pointer for destructor on shutdown)  
-ThreadPool pool(max(1, g_max_workers));  
-g_threadpool_ptr = &pool;  
-
-int server_fd;  
-if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {  
-    perror("socket failed");  
-    if (g_db) sqlite3_close(g_db);  
-    return 1;  
-}  
-// store global so signal handler can close  
-g_server_fd = server_fd;  
-
-// Set socket options properly  
-int opt = 1;  
-if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {  
-    perror("setsockopt SO_REUSEADDR failed");  
-}
-
-#ifdef SO_REUSEPORT
-if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) < 0) {
-// non-fatal on systems that don't support it
-perror("setsockopt SO_REUSEPORT failed (non-fatal)");
-}
-#endif
-
-struct sockaddr_in address{};  
-address.sin_family = AF_INET;  
-address.sin_addr.s_addr = INADDR_ANY;  
-int port = 8080;  
-if (envp_port) {  
-    try { port = stoi(string(envp_port)); } catch(...) { port = 8080; }  
-}  
-address.sin_port = htons(port);  
-
-if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {  
-    perror("bind failed");  
-    if (g_db) sqlite3_close(g_db);  
-    return 1;  
-}  
-
-if (listen(server_fd, 128) < 0) {  
-    perror("listen");  
-    if (g_db) sqlite3_close(g_db);  
-    return 1;  
-}  
-
-LOGI(string("🚀 Server running on http://0.0.0.0:") + to_string(port) + " (workers=" + to_string(g_max_workers) + ", data_dir=" + g_data_dir + ")");  
-
-// Accept loop: submit connections to threadpool for handling  
-while (g_running.load()) {  
-    struct sockaddr_in clientAddr{};  
-    socklen_t clientLen = sizeof(clientAddr);  
-    int clientSock = accept(server_fd, (struct sockaddr *)&clientAddr, &clientLen);  
-    if (clientSock < 0) {  
-        if (!g_running.load()) break; // shutdown requested  
-        perror("accept");  
-        continue;  
+    if (env_data && strlen(env_data) > 0) {  
+        g_data_dir = string(env_data);  
+    }  
+    if (env_workers && strlen(env_workers) > 0) {  
+        try { g_max_workers = stoi(string(env_workers)); } catch(...) { g_max_workers = 4; }  
+    } else {  
+        int hc = (int)thread::hardware_concurrency();  
+        if (hc > 1) g_max_workers = min(hc, 8);  
     }  
 
-    // Set TCP_NODELAY for lower latency  
-    int flag = 1;  
-    setsockopt(clientSock, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(int));  
+    ensureDataFolder("");  
 
-    // capture client IP  
-    char client_ip[INET_ADDRSTRLEN] = {0};  
-    inet_ntop(AF_INET, &clientAddr.sin_addr, client_ip, sizeof(client_ip));  
-    string cli = string(client_ip) + ":" + to_string(ntohs(clientAddr.sin_port));  
-    LOGI(string("Accepted connection from ") + cli);  
+    if (!initDatabase()) {  
+        LOGE("Could not initialize database - exiting");  
+        return 1;  
+    }  
 
-    // Enqueue client handler into threadpool  
-    try {
-    pool.enqueue([clientSock]() {  // capture socket by value
-        handleClient(clientSock);  // handle request
-    });
-} catch (const std::exception &ex) {
-    LOGE(string("Failed to enqueue client handler: ") + ex.what());
-    close(clientSock); // avoid leaking socket if enqueue fails
+    migrateTextFilesIfNeeded();  
+
+    loadProducts();  
+    loadOrders();  
+
+    signal(SIGPIPE, SIG_IGN);  
+
+    struct sigaction sa{};  
+    sa.sa_handler = gracefulShutdown;  
+    sigemptyset(&sa.sa_mask);  
+    sa.sa_flags = 0;  
+    sigaction(SIGINT, &sa, nullptr);  
+    sigaction(SIGTERM, &sa, nullptr);  
+
+    ThreadPool pool(max(1, g_max_workers));  
+    g_threadpool_ptr = &pool;  
+
+    int server_fd;  
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {  
+        perror("socket failed");  
+        if (g_db) sqlite3_close(g_db);  
+        return 1;  
+    }  
+    g_server_fd = server_fd;  
+
+    int opt = 1;  
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {  
+        perror("setsockopt SO_REUSEADDR failed");  
     }
-// Graceful shutdown after exiting accept loop
-LOGI("Server shutting down...");
 
-// Close server socket if not already closed
-if (g_server_fd >= 0) {
-    close(g_server_fd);
-    g_server_fd = -1;
-}
+#ifdef SO_REUSEPORT
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) < 0) {
+        perror("setsockopt SO_REUSEPORT failed (non-fatal)");
+    }
+#endif
 
-// Let thread pool finish and destroy
-g_threadpool_ptr = nullptr;
+    struct sockaddr_in address{};  
+    address.sin_family = AF_INET;  
+    address.sin_addr.s_addr = INADDR_ANY;  
 
-// Close SQLite DB
-if (g_db) {
-    sqlite3_close(g_db);
-    g_db = nullptr;
-}
+    int port = 8080;  
+    if (envp_port) {  
+        try { port = stoi(string(envp_port)); } catch(...) { port = 8080; }  
+    }  
+    address.sin_port = htons(port);  
 
-LOGI("Server exited cleanly.");
-return 0;
+    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {  
+        perror("bind failed");  
+        if (g_db) sqlite3_close(g_db);  
+        return 1;  
+    }  
+
+    if (listen(server_fd, 128) < 0) {  
+        perror("listen");  
+        if (g_db) sqlite3_close(g_db);  
+        return 1;  
+    }  
+
+    LOGI(string("🚀 Server running on http://0.0.0.0:") +
+         to_string(port) +
+         " (workers=" + to_string(g_max_workers) +
+         ", data_dir=" + g_data_dir + ")");  
+
+    // ================= ACCEPT LOOP =================
+    while (g_running.load()) {  
+        struct sockaddr_in clientAddr{};  
+        socklen_t clientLen = sizeof(clientAddr);  
+        int clientSock = accept(server_fd, (struct sockaddr *)&clientAddr, &clientLen);  
+
+        if (clientSock < 0) {  
+            if (!g_running.load()) break;  
+            perror("accept");  
+            continue;  
+        }  
+
+        int flag = 1;  
+        setsockopt(clientSock, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(int));  
+
+        char client_ip[INET_ADDRSTRLEN] = {0};  
+        inet_ntop(AF_INET, &clientAddr.sin_addr, client_ip, sizeof(client_ip));  
+        string cli = string(client_ip) + ":" + to_string(ntohs(clientAddr.sin_port));  
+        LOGI(string("Accepted connection from ") + cli);  
+
+        try {
+            pool.enqueue([clientSock]() {
+                handleClient(clientSock);
+            });
+        } catch (const std::exception &ex) {
+            LOGE(string("Failed to enqueue client handler: ") + ex.what());
+            close(clientSock);
+        }
+    } // ✅ THIS BRACE WAS MISSING
+
+    // ================ SHUTDOWN =================
+    LOGI("Server shutting down...");
+
+    if (g_server_fd >= 0) {
+        close(g_server_fd);
+        g_server_fd = -1;
+    }
+
+    g_threadpool_ptr = nullptr;
+
+    if (g_db) {
+        sqlite3_close(g_db);
+        g_db = nullptr;
+    }
+
+    LOGI("Server exited cleanly.");
+    return 0;
 }
