@@ -1257,7 +1257,7 @@ while (g_running.load()) {
         close(clientSock); // avoid leaking socket if enqueue fails
     }
 
-
+}
 // Graceful shutdown after exiting accept loop
 LOGI("Server shutting down...");
 
