@@ -387,6 +387,7 @@ document.querySelector(".cart-footer .checkout-btn").addEventListener("click",()
         const total=document.getElementById("cartTotal").textContent;
         modal.remove();
       // ---------------- Send order to backend ----------------
+// ---------------- Send order to backend ----------------
 const orderData = {
     id: orderId,
     name: name,
@@ -402,46 +403,45 @@ const orderData = {
         quantity: item.quantity
     }))
 };
+
 fetch(`${API_BASE}/api/orders`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(orderData)
 })
-.then(res => res.json())
-.then(data => {
-    console.log("Order saved:", data);
+.then(async res => {
+    if(!res.ok) throw new Error("Server returned " + res.status);
+    const data = await res.json();
+    console.log("✅ Order saved:", data);
 
-    // 🔔 WhatsApp Notification
+    // Clear cart & update UI
+    localStorage.removeItem("cart");
+    updateCartCount();
+    renderCartItems();
+
+    // WhatsApp notification
     const waMessage = `
 *🛒 NEW ORDER RECEIVED*
-
 Order ID: ${orderId}
 Name: ${name}
 Phone: ${contact}
 Total: Rs.${total}
-Payment: ${payment}
-`;
+Payment: ${payment}`;
+    window.open(`https://wa.me/923444318078?text=${encodeURIComponent(waMessage)}`, "_blank");
 
-    const waUrl = `https://wa.me/923444318078?text=${encodeURIComponent(waMessage)}`;
-    window.open(waUrl, "_blank");
+    // Payment redirects
+    if(payment==="easypaisa"){
+        window.open(`https://www.easypaisa.com.pk/pay/03187900076?amount=${total}&reference=${orderId}`,"_blank");
+    } else if(payment==="jazzcash"){
+        window.open(`https://www.jazzcash.com.pk/pay/03187900076?amount=${total}&reference=${orderId}`,"_blank");
+    }
+
+    alert("🎉 Order placed successfully!");
+    window.location.href="index.html";
 })
-.catch(err => console.error("Failed to save order:", err));
-        if(payment==="easypaisa"){
-            window.open(`https://www.easypaisa.com.pk/pay/03187900076?amount=${total}&reference=${orderId}`,"_blank");
-        } else if(payment==="jazzcash"){
-            window.open(`https://www.jazzcash.com.pk/pay/03187900076?amount=${total}&reference=${orderId}`,"_blank");
-        }
-
-        const popup=document.createElement("div"); popup.className="thank-popup";
-        popup.innerHTML=`<div class="thank-card"><h2>🎉 Order Successful!</h2><p>Your order has been placed successfully.</p><p class="redirect-text">Redirecting to home page in <span id="countdown">10</span> seconds...</p></div>`;
-        document.body.appendChild(popup);
-
-        let countdown=10;
-        const countdownEl=popup.querySelector("#countdown");
-        const interval=setInterval(()=>{ countdown--; countdownEl.textContent=countdown; if(countdown<=0) clearInterval(interval); },1000);
-
-        setTimeout(()=>{ popup.remove(); localStorage.removeItem("cart"); window.location.href="index.html"; },10000);
-    });
+.catch(err => {
+    console.error("❌ Failed to save order:", err);
+    alert("❌ Order could not be saved. Please try again.");
 });
 
 // ----------------- Initialize -----------------
