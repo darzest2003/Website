@@ -1248,15 +1248,14 @@ while (g_running.load()) {
     LOGI(string("Accepted connection from ") + cli);  
 
     // Enqueue client handler into threadpool  
-    try {  
-        pool.enqueue([clientSock]() {  // capture socket by value
-            handleClient(clientSock);  // handle request
-        });
-    } catch (const std::exception &ex) {
-        LOGE(string("Failed to enqueue client handler: ") + ex.what());
-        close(clientSock); // avoid leaking socket if enqueue fails
+    try {
+    pool.enqueue([clientSock]() {  // capture socket by value
+        handleClient(clientSock);  // handle request
+    });
+} catch (const std::exception &ex) {
+    LOGE(string("Failed to enqueue client handler: ") + ex.what());
+    close(clientSock); // avoid leaking socket if enqueue fails
     }
-}
 // Graceful shutdown after exiting accept loop
 LOGI("Server shutting down...");
 
