@@ -873,6 +873,7 @@ if (path.find("/api/addProduct") == 0 && method == "POST") {
 sendResponse(clientSocket, "200 OK", "text/plain", "Product added successfully");
 close(clientSocket);
 return;
+}
 
 // POST /api/deleteProduct  
 if (path.find("/api/deleteProduct") == 0 && method == "POST") {  
