@@ -349,10 +349,12 @@ document.querySelector('.search input').addEventListener('input',e=>{
 document.querySelector('.theme-toggle').addEventListener('click',()=>{ document.body.classList.toggle('theme-dark'); document.body.classList.toggle('theme-grey'); });
 
 // ----------------- Checkout & Payment -----------------
-document.querySelector(".cart-footer .checkout-btn").addEventListener("click",()=>{
+document.querySelector(".cart-footer .checkout-btn").addEventListener("click", ()=>{
     if(cart.length===0){ alert("Cart is empty!"); return; }
-    const modal=document.createElement("div"); modal.className="checkout-modal-overlay";
-    modal.innerHTML=`<div class="checkout-modal" id="checkoutModal">
+
+    const modal = document.createElement("div"); 
+    modal.className = "checkout-modal-overlay";
+    modal.innerHTML = `<div class="checkout-modal" id="checkoutModal">
       <div class="checkout-form">
         <h2>🛒 Complete Your Order</h2>
         <form id="orderForm">
@@ -374,76 +376,68 @@ document.querySelector(".cart-footer .checkout-btn").addEventListener("click",()
     </div>`;
     document.body.appendChild(modal);
 
-    modal.querySelector("#closeCheckout").addEventListener("click",()=>modal.remove());
+    modal.querySelector("#closeCheckout").addEventListener("click", ()=>modal.remove());
 
-    modal.querySelector("#submitOrder").addEventListener("click",()=>{
-        const name=modal.querySelector("#custName").value.trim();
-        const contact=modal.querySelector("#custContact").value.trim();
-        const address=modal.querySelector("#custAddress").value.trim();
-        const payment=modal.querySelector("#custPayment").value;
+    modal.querySelector("#submitOrder").addEventListener("click", ()=> {
+        const name = modal.querySelector("#custName").value.trim();
+        const contact = modal.querySelector("#custContact").value.trim();
+        const address = modal.querySelector("#custAddress").value.trim();
+        const payment = modal.querySelector("#custPayment").value;
         if(!name || !contact || !address || !payment){ alert("Please fill all required fields"); return; }
 
-        const orderId="OZ"+Math.floor(100000 + Math.random()*900000);
-        const total=document.getElementById("cartTotal").textContent;
-        modal.remove();
-      // ---------------- Send order to backend ----------------
-// ---------------- Send order to backend ----------------
-// ---------------- Send order to backend ----------------
-const orderData = {
-    id: orderId,
-    name: name,
-    contact: contact,
-    address: address,
-    payment: payment,
-    totalAmount: Number(total),                 // <- ensure numeric
-    shipping: calculateShipping(Number(total)), // <- numeric
-    items: cart.map(item => ({
-        id: item.id,
-        title: item.title,
-        price: Number(item.price),
-        quantity: Number(item.quantity)
-    }))
-};
+        const orderId = "OZ"+Math.floor(100000 + Math.random()*900000);
+        let total = document.getElementById("cartTotal").textContent;
+        total = parseFloat(total.replace(/[^0-9.]/g,''));  // Ensure numeric
+        const shipping = calculateShipping(total);
 
-fetch(`${API_BASE}/api/orders`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(orderData)
-})
-.then(async res => {
-    if(!res.ok) throw new Error("Server returned " + res.status);
-    const data = await res.json();
-    console.log("✅ Order saved:", data);
+        const orderData = {
+            id: orderId,
+            name,
+            contact,
+            address,
+            payment,
+            totalAmount: total,
+            shipping,
+            items: cart.map(item => ({
+                id: item.id,
+                title: item.title,
+                price: Number(item.price),
+                quantity: Number(item.quantity)
+            }))
+        };
 
-    // Clear cart & update UI
-    cart = [];
-    localStorage.removeItem("cart");
-    updateCartCount();
-    renderCartItems();
+        fetch(`${API_BASE}/api/orders`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(orderData)
+        })
+        .then(async res => {
+            if(!res.ok) throw new Error("Server returned " + res.status);
+            const data = await res.json();
+            console.log("✅ Order saved:", data);
 
-    // WhatsApp notification
-    const waMessage = `
-*🛒 NEW ORDER RECEIVED*
-Order ID: ${orderId}
-Name: ${name}
-Phone: ${contact}
-Total: Rs.${total}
-Payment: ${payment}`;
-    window.open(`https://wa.me/923444318078?text=${encodeURIComponent(waMessage)}`, "_blank");
+            cart = [];
+            localStorage.removeItem("cart");
+            updateCartCount();
+            renderCartItems();
 
-    // Payment redirects
-    if(payment==="easypaisa"){
-        window.open(`https://www.easypaisa.com.pk/pay/03187900076?amount=${total}&reference=${orderId}`,"_blank");
-    } else if(payment==="jazzcash"){
-        window.open(`https://www.jazzcash.com.pk/pay/03187900076?amount=${total}&reference=${orderId}`,"_blank");
-    }
+            alert("🎉 Order placed successfully!");
+            modal.remove();
 
-    alert("🎉 Order placed successfully!");
-    window.location.href="index.html";
-})
-.catch(err => {
-    console.error("❌ Failed to save order:", err);
-    alert("❌ Order could not be saved. Please try again.");
+            // Optional payment redirects
+            if(payment==="easypaisa"){
+                window.open(`https://www.easypaisa.com.pk/pay/03187900076?amount=${total}&reference=${orderId}`, "_blank");
+            } else if(payment==="jazzcash"){
+                window.open(`https://www.jazzcash.com.pk/pay/03187900076?amount=${total}&reference=${orderId}`, "_blank");
+            }
+
+            window.location.href = "index.html"; // reload shop
+        })
+        .catch(err => {
+            console.error("❌ Failed to save order:", err);
+            alert("❌ Order could not be saved. Please try again.");
+        });
+    });
 });
     
 
