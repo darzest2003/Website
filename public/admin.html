@@ -141,13 +141,13 @@ async function addProduct() {
   };
 
   try {
-    // 1️⃣ Get existing products
+    // Get current products
     const existing = await (await fetch(`${API}/api/products`)).json();
 
-    // 2️⃣ Add the new product
+    // Add new product
     const products = [...existing, newProduct];
 
-    // 3️⃣ Send full array to server
+    // Send full array back
     const res = await fetch(`${API}/api/products`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -158,26 +158,18 @@ async function addProduct() {
 
     alert("✅ Product added successfully");
 
+    // Reset form
     document.getElementById("pTitle").value = "";
     document.getElementById("pPrice").value = "";
     document.getElementById("pStock").value = "";
     document.getElementById("pImg").value = "";
 
-    loadProducts(); // reload the product list
+    loadProducts(); // reload product list
   } catch (err) {
     console.error(err);
     alert("❌ Server error while adding product");
   }
 }
-  
-async function deleteProduct(id){  
-  await fetch(`${API}/api/deleteProduct`,{  
-    method:"POST",  
-    headers:{"Content-Type":"application/json"},  
-    body:JSON.stringify({id})  
-  });  
-  loadProducts();  
-}  
   
 loadOrders();  
 loadProducts();  
