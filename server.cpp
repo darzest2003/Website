@@ -849,14 +849,15 @@ if (path.find("/api/products") == 0 && method == "GET") {
 // POST /api/addProduct  
 
 using json = nlohmann::json;
-
 else if (path.find("/api/addProduct") == 0 && method == "POST") {
-    LOGD("Add product request body: %s", body.c_str()); // Debug log
+    LOGD("Add product request body: " + body);
 
-    // Parse JSON safely
+    // Parse JSON safely using nlohmann::json
     json j = json::parse(body, nullptr, false);
     if (j.is_discarded() || !j.contains("name") || !j.contains("price")) {
-        sendJsonResponse(clientSock, "{\"success\":false,\"error\":\"Invalid input\"}");
+        sendResponse(clientSocket, "400 Bad Request", "application/json",
+                     "{\"success\":false,\"error\":\"Invalid input\"}");
+        close(clientSocket);
         return;
     }
 
@@ -870,22 +871,22 @@ else if (path.find("/api/addProduct") == 0 && method == "POST") {
         // Increment ID safely based on last product
         currentProductID = products.empty() ? 0 : stoi(products.back().id.substr(1));
         p.id = "p" + to_string(++currentProductID);
-        p.name = name;
+        p.title = name;  // <-- use 'title', not 'name', consistent with Product struct
         p.price = price;
+        p.img = "";
+        p.stock = 0;
 
         products.push_back(p);
-
-        if (!saveProducts()) {
-            LOGE("Failed to save product to DB/file");
-            sendJsonResponse(clientSock, "{\"success\":false,\"error\":\"DB save failed\"}");
-            return;
-        }
+        saveProducts(); // returns void in your current code
     }
 
-    sendJsonResponse(clientSock, "{\"success\":true,\"id\":\"" + p.id + "\"}");
-    LOGD("Product added successfully: %s", p.name.c_str());
+    string resp = "{\"success\":true,\"id\":\"" + p.id + "\"}";
+    sendResponse(clientSocket, "200 OK", "application/json", resp);
+    LOGD("Product added successfully: " + name);
+    close(clientSocket);
     return;
 }
+
 
 // POST /api/deleteProduct  
 if (path.find("/api/deleteProduct") == 0 && method == "POST") {  
