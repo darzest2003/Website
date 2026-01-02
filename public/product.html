@@ -75,29 +75,6 @@ async function fileToDataURL(file){
   });
 }
 
-async function addProduct(){
-  const title=document.getElementById("title").value.trim();
-  const price=Number(document.getElementById("price").value||0);
-  const stock=Number(document.getElementById("stock").value||0);
-  const file=document.getElementById("imageFile").files[0];
-  const url=document.getElementById("imageUrl").value.trim();
-
-  if(!title){ alert("Enter product title"); return; }
-
-  let img=null;
-  if(file) img=await fileToDataURL(file);
-  else if(url) img=url;
-
-  const product={ id:"p_"+Math.random().toString(36).slice(2,9), title, price, stock, img };
-
-  const res=await fetch("/api/products",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify(product)
-  });
-  alert(await res.text());
-  loadProducts();
-}
 
 async function addProduct(){
   const title = document.getElementById("title").value.trim();
