@@ -99,43 +99,55 @@ async function addProduct(){
   loadProducts();
 }
 
-async function updateProduct(id){
-  const title=document.getElementById("title_"+id).value.trim();
-  const price=Number(document.getElementById("price_"+id).value||0);
-  const stock=Number(document.getElementById("stock_"+id).value||0);
-  const file=document.getElementById("file_"+id).files[0];
-  const url=document.getElementById("url_"+id).value.trim();
+async function addProduct(){
+  const title = document.getElementById("title").value.trim();
+  const price = Number(document.getElementById("price").value || 0);
+  const stock = Number(document.getElementById("stock").value || 0);
+  const file = document.getElementById("imageFile").files[0];
+  const url = document.getElementById("imageUrl").value.trim();
 
-  let img=null;
-  if(file) img=await fileToDataURL(file);
-  else if(url) img=url;
+  if(!title){ 
+    alert("Enter product title"); 
+    return; 
+  }
 
-  const products=await (await fetch("/api/products")).json();
-  const i=products.findIndex(p=>p.id===id);
-  if(i<0) return alert("Product not found");
+  let img = null;
+  if(file) img = await fileToDataURL(file);
+  else if(url) img = url;
 
-  products[i]={...products[i],title,price,stock};
-  if(img) products[i].img=img;
+  const newProduct = { 
+    id: "p_" + Math.random().toString(36).slice(2,9), 
+    title, 
+    price, 
+    stock, 
+    img 
+  };
 
-  await fetch("/api/products",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify(products[i])
+  // Load existing products first
+  const existingProducts = await (await fetch("/api/products")).json();
+
+  // Add the new product to the array
+  const products = [...existingProducts, newProduct];
+
+  // Save full array back to the server
+  const res = await fetch("/api/products", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(products)
   });
 
-  alert("Product updated!");
+  alert("Product added!");
+  
+  // Reset the form
+  document.getElementById("title").value = "";
+  document.getElementById("price").value = "";
+  document.getElementById("stock").value = "";
+  document.getElementById("imageFile").value = "";
+  document.getElementById("imageUrl").value = "";
+
+  // Reload products
   loadProducts();
 }
-
-async function deleteProduct(id){
-  let products=await (await fetch("/api/products")).json();
-  products=products.filter(p=>p.id!==id);
-  await fetch("/api/products",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(products)});
-  alert("Product deleted!");
-  loadProducts();
-}
-
-loadProducts();
 </script>
 </body>
 </html>
