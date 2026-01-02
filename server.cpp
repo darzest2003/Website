@@ -849,7 +849,7 @@ if (path.find("/api/products") == 0 && method == "GET") {
 // POST /api/addProduct  
 
 using json = nlohmann::json;
-else if (path.find("/api/addProduct") == 0 && method == "POST") {
+if (path.find("/api/addProduct") == 0 && method == "POST") {
     LOGD("Add product request body: " + body);
 
     // Parse JSON safely using nlohmann::json
