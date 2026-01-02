@@ -5,7 +5,9 @@ FROM ubuntu:22.04 AS builder
 
 # Install build tools + PostgreSQL dev + SQLite dev
 RUN apt-get update && apt-get install -y \
-    g++ cmake make git libpq-dev libsqlite3-dev \
+    g++ cmake make git \
+    libpq-dev libsqlite3-dev \
+    nlohmann-json3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
