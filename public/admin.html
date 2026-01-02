@@ -108,62 +108,67 @@ function downloadLabel(id){
 }  
   
 // ---------------- Products ----------------  
-async function loadProducts(){  
-  const res = await fetch(`${API}/api/products`);  
-  const data = await res.json();  
-  const ul = document.getElementById("productList");  
-  ul.innerHTML="";  
-  data.forEach(p=>{  
-    ul.innerHTML+=`  
-      <li>  
-        ${p.title} — Rs.${p.price}  
-        <button onclick="deleteProduct('${p.id}')">Delete</button>  
-      </li>`;  
-  });  
-}  
-async function addProduct() {  
-  const title = document.getElementById("pTitle").value.trim();  
-  const price = document.getElementById("pPrice").value.trim();  
-  const stock = document.getElementById("pStock").value.trim();  
-  const imgInput = document.getElementById("pImg").value.trim();  
-  
-  if (!title || !price || !stock || !imgInput) {  
-    alert("❌ Please fill all product fields");  
-    return;  
-  }  
-  
-  const img = "uploads/" + imgInput; // <- prepend uploads/ to match your folder structure  
-  
-  try {  
-    const res = await fetch(`${API}/api/addProduct`, {  
-      method: "POST",  
-      headers: { "Content-Type": "application/json" },  
-      body: JSON.stringify({  
-        title: String(title),  
-        price: String(price),  
-        stock: String(stock),  
-        img: String(img)  
-      })  
-    });  
-  
-    if (!res.ok) {  
-      alert("❌ Failed to add product");  
-      return;  
-    }  
-  
-    alert("✅ Product added successfully");  
-  
-    document.getElementById("pTitle").value = "";  
-    document.getElementById("pPrice").value = "";  
-    document.getElementById("pStock").value = "";  
-    document.getElementById("pImg").value = "";  
-  
-    loadProducts();  
-  } catch (err) {  
-    console.error(err);  
-    alert("❌ Server error while adding product");  
-  }  
-}  
+async function loadProducts(){
+  const res = await fetch(`${API}/api/products`);
+  const data = await res.json();
+  const ul = document.getElementById("productList");
+  ul.innerHTML="";
+  data.forEach(p=>{
+    ul.innerHTML+=`
+      <li>
+        ${p.title} — Rs.${p.price}
+        <button onclick="deleteProduct('${p.id}')">Delete</button>
+      </li>`;
+  });
+}
+async function addProduct() {
+  const title = document.getElementById("pTitle").value.trim();
+  const price = Number(document.getElementById("pPrice").value || 0);
+  const stock = Number(document.getElementById("pStock").value || 0);
+  const img = document.getElementById("pImg").value.trim();
+
+  if (!title || !price || !stock || !img) {
+    alert("❌ Please fill all fields");
+    return;
+  }
+
+  const newProduct = {
+    id: "p_" + Math.random().toString(36).slice(2,9),
+    title,
+    price,
+    stock,
+    img
+  };
+
+  try {
+    // 1️⃣ Get existing products
+    const existing = await (await fetch(`${API}/api/products`)).json();
+
+    // 2️⃣ Add the new product
+    const products = [...existing, newProduct];
+
+    // 3️⃣ Send full array to server
+    const res = await fetch(`${API}/api/products`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(products)
+    });
+
+    if (!res.ok) throw new Error("Failed to add product");
+
+    alert("✅ Product added successfully");
+
+    document.getElementById("pTitle").value = "";
+    document.getElementById("pPrice").value = "";
+    document.getElementById("pStock").value = "";
+    document.getElementById("pImg").value = "";
+
+    loadProducts(); // reload the product list
+  } catch (err) {
+    console.error(err);
+    alert("❌ Server error while adding product");
+  }
+}
   
 async function deleteProduct(id){  
   await fetch(`${API}/api/deleteProduct`,{  
@@ -176,7 +181,8 @@ async function deleteProduct(id){
   
 loadOrders();  
 loadProducts();  
-</script>  <script>  
+</script>
+  <script>  
   const adminToggle = document.querySelector('.admin-menu-toggle');  
   const adminSidebar = document.querySelector('.admin-sidebar');  
   const adminItems = document.querySelectorAll('.admin-sidebar li');  
