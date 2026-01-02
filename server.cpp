@@ -2,7 +2,7 @@
 // Polished single-file C++ HTTP server for ONLINETRADERZ
 // SQLite port of original file-backed server (ready-to-compile).
 // Compile with: g++ server.cpp -o server -pthread -lsqlite3
-
+#include "json.hpp" // Make sure this is included at the top
 #include <iostream>
 #include <functional>
 #include <netinet/tcp.h>
@@ -847,7 +847,7 @@ if (path.find("/api/products") == 0 && method == "GET") {
 }  
 
 // POST /api/addProduct  
-#include "json.hpp" // Make sure this is included at the top
+
 using json = nlohmann::json;
 
 else if (path.find("/api/addProduct") == 0 && method == "POST") {
