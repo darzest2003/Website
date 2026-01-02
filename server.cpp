@@ -2,7 +2,7 @@
 // Polished single-file C++ HTTP server for ONLINETRADERZ
 // SQLite port of original file-backed server (ready-to-compile).
 // Compile with: g++ server.cpp -o server -pthread -lsqlite3
-#include "json.hpp" // Make sure this is included at the top
+#include <nlohmann/json.hpp>
 #include <iostream>
 #include <functional>
 #include <netinet/tcp.h>
