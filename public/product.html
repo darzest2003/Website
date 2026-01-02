@@ -74,8 +74,6 @@ async function fileToDataURL(file){
     r.readAsDataURL(file);
   });
 }
-
-
 async function addProduct(){
   const title = document.getElementById("title").value.trim();
   const price = Number(document.getElementById("price").value || 0);
@@ -107,7 +105,7 @@ async function addProduct(){
   const products = [...existingProducts, newProduct];
 
   // Save full array back to the server
-  const res = await fetch("/api/products", {
+  await fetch("/api/products", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(products)
@@ -125,6 +123,7 @@ async function addProduct(){
   // Reload products
   loadProducts();
 }
+
 </script>
 </body>
 </html>
