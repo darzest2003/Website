@@ -847,32 +847,44 @@ if (path.find("/api/products") == 0 && method == "GET") {
 }  
 
 // POST /api/addProduct  
-if (path.find("/api/addProduct") == 0 && method == "POST") {  
-    auto kv = parseJson(body);  
-    if (kv.empty()) kv = parseFormUrlEncoded(body);  
-    Product p;  
-    p.id = generateProductID();  
-    p.title = trim(kv.count("title") ? kv["title"] : "");  
-    try { p.price = kv.count("price") ? stod(kv["price"]) : 0.0; } catch(...) { p.price = 0.0; }  
-    p.img = kv.count("img") ? kv["img"] : "";  
-    try { p.stock = kv.count("stock") ? stoi(kv["stock"]) : 0; } catch(...) { p.stock = 0; }  
+#include "json.hpp" // Make sure this is included at the top
+using json = nlohmann::json;
 
-    if (p.title.empty()) {  
-        sendResponse(clientSocket, "400 Bad Request", "application/json", "{\"status\":\"error\",\"message\":\"Title required\"}");  
-        close(clientSocket);  
-        return;  
-    }  
-    if (p.img.empty()) p.img = "uploads/product1.jpg"; // stored under /public/uploads/  
+else if (path.find("/api/addProduct") == 0 && method == "POST") {
+    LOGD("Add product request body: %s", body.c_str()); // Debug log
 
+    // Parse JSON safely
+    json j = json::parse(body, nullptr, false);
+    if (j.is_discarded() || !j.contains("name") || !j.contains("price")) {
+        sendJsonResponse(clientSock, "{\"success\":false,\"error\":\"Invalid input\"}");
+        return;
+    }
+
+    string name = j["name"].get<string>();
+    double price = j["price"].get<double>();
+
+    Product p;
     {
-    lock_guard<mutex> lock(g_storage_mutex);
-    products.push_back(p);
-    saveProducts();
-}
+        lock_guard<mutex> lock(g_storage_mutex);
 
-sendResponse(clientSocket, "200 OK", "text/plain", "Product added successfully");
-close(clientSocket);
-return;
+        // Increment ID safely based on last product
+        currentProductID = products.empty() ? 0 : stoi(products.back().id.substr(1));
+        p.id = "p" + to_string(++currentProductID);
+        p.name = name;
+        p.price = price;
+
+        products.push_back(p);
+
+        if (!saveProducts()) {
+            LOGE("Failed to save product to DB/file");
+            sendJsonResponse(clientSock, "{\"success\":false,\"error\":\"DB save failed\"}");
+            return;
+        }
+    }
+
+    sendJsonResponse(clientSock, "{\"success\":true,\"id\":\"" + p.id + "\"}");
+    LOGD("Product added successfully: %s", p.name.c_str());
+    return;
 }
 
 // POST /api/deleteProduct  
