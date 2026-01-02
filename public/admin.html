@@ -2,226 +2,142 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>ONLINETRADERZ — Admin Panel</title>
-  <link rel="stylesheet" href="admin.css">
+  <title>ONLINETRADERZ — Product Management</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
+    h1 { text-align: center; }
+    .form { background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,.1); }
+    .form input, .form button { margin: 5px 0; padding: 10px; width: 100%; }
+    .form button { background: #25D366; color: #fff; border: none; border-radius: 5px; cursor: pointer; }
+    .products { display: grid; grid-template-columns: repeat(auto-fill,minmax(280px,1fr)); gap: 20px; }
+    .product { background: #fff; padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,.1); }
+    .product img { width: 100%; height: 150px; object-fit: cover; border-radius: 6px; margin-bottom: 10px; }
+    .product input { width: 100%; margin: 5px 0; padding: 8px; }
+    .product button { margin: 5px; padding: 8px 12px; border: none; border-radius: 5px; cursor: pointer; }
+    .update { background: #007bff; color: #fff; }
+    .delete { background: #dc3545; color: #fff; }
+  </style>
 </head>
 <body>
-  <button class="admin-menu-toggle">☰</button>
+  <h1>Product Management</h1>
 
-<aside class="admin-sidebar">
-  <h3>Admin Panel</h3>
-  <ul>
-    <li data-section="products">Products</li>
-    <li data-section="orders">Orders</li>
-    <li data-section="address">Address Book</li>
-    <li data-section="analytics">Analytics</li>
-  </ul>
-</aside>
-  
+  <div class="form">
+    <h2>Add Product</h2>
+    <input type="text" id="title" placeholder="Product Title" />
+    <input type="number" id="price" placeholder="Price" />
+    <input type="number" id="stock" placeholder="Stock" />
+    <input type="text" id="imageUrl" placeholder="Image URL" />
+    <button onclick="addProduct()">Add Product</button>
+  </div>
 
-<section id="analytics" class="admin-section">
-  <h2>Quick Stats</h2>
-  <div id="stats"></div>
-</section>
-  
-
-<script>
-if (sessionStorage.getItem("adminLoggedIn") !== "true") {
-  window.location.href = "admin_login.html";
-}
-</script>
-
-<header class="topbar">
-  <h1>Admin Dashboard</h1>
-  <button onclick="logout()">Logout</button>
-</header>
-
-<section class="stats">
-  <div class="card">Total Orders<br><span id="orderCount">0</span></div>
-  <div class="card">Total Revenue<br>Rs.<span id="revenue">0</span></div>
-</section>
-
-  <section id="address" class="panel admin-section">
-  <h2>Address Book</h2>
-  <p>Addresses from orders will appear here.</p>
-  </section>
-  
-
-<section id="orders" class="panel admin-section">
-  <h2>Recent Orders</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>Order ID</th>
-        <th>Name</th>
-        <th>Contact</th>
-        <th>Payment</th>
-        <th>Total</th>
-        <th>Label</th>
-      </tr>
-    </thead>
-    <tbody id="ordersBody"></tbody>
-  </table>
-</section>
-
-<section id="products" class="panel admin-section active">
-  <h2>Add Product</h2>
-  <input id="pTitle" placeholder="Product Title">
-  <input id="pPrice" type="number" placeholder="Price">
-  <input id="pStock" type="number" placeholder="Stock">
-  <input id="pImg" placeholder="Image URL (productname.jpg)">
-  <button onclick="addProduct()">Add Product</button>
-
-  <h2 style="margin-top:20px">Products</h2>
-  <ul id="productList"></ul>
-</section>
-  
+  <h2>All Products</h2>
+  <div class="products" id="products"></div>
 
 <script>
 const API = "https://cppbackened.onrender.com";
 
-function logout(){
-  sessionStorage.clear();
-  location.href="admin_login.html";
-}
-
-// ---------------- Orders ----------------
-async function loadOrders() {
-  try {
-    const res = await fetch(`${API}/api/orders`);
-    const orders = await res.json(); // expects a proper JSON array
-
-    let total = 0;
-    document.getElementById("orderCount").textContent = orders.length;
-
-    const tbody = document.getElementById("ordersBody");
-    tbody.innerHTML = "";
-
-    // Display orders newest first
-    orders.reverse().forEach(o => {
-  const amount = Number(o.totalAmount) || 0;  // Ensure it's a number
-  total += amount;
-  tbody.innerHTML += `
-    <tr>
-      <td>${o.id}</td>
-      <td>${o.name}</td>
-      <td>${o.contact}</td>
-      <td>${o.payment}</td>
-      <td>Rs.${amount.toFixed(2)}</td>
-      <td>
-        <button onclick="viewLabel('${o.id}')">View</button>
-        <button onclick="downloadLabel('${o.id}')">Download</button>
-      </td>
-    </tr>`;
-});
-
-    document.getElementById("revenue").textContent = total;
-  } catch (err) {
-    console.error("Failed to load orders:", err);
-  }
-}
-
-function viewLabel(id){
-  window.open(`${API}/api/shippingLabel?id=${id}`,"_blank");
-}
-
-function downloadLabel(id){
-  const a=document.createElement("a");
-  a.href=`${API}/api/shippingLabel?id=${id}`;
-  a.download=`Shipping_${id}.txt`;
-  a.click();
-}
-
-// ---------------- Products ----------------
+// ----------------- Load Products -----------------
 async function loadProducts(){
   const res = await fetch(`${API}/api/products`);
-  const data = await res.json();
-  const ul = document.getElementById("productList");
-  ul.innerHTML="";
-  data.forEach(p=>{
-    ul.innerHTML+=`
-      <li>
-        ${p.title} — Rs.${p.price}
-        <button onclick="deleteProduct('${p.id}')">Delete</button>
-      </li>`;
-  });
-}
-async function addProduct() {
-  const title = document.getElementById("pTitle").value.trim();
-  const price = document.getElementById("pPrice").value.trim();
-  const stock = document.getElementById("pStock").value.trim();
-  const imgInput = document.getElementById("pImg").value.trim();
-
-  if (!title || !price || !stock || !imgInput) {
-    alert("❌ Please fill all product fields");
-    return;
-  }
-
-  const img = "uploads/" + imgInput; // <- prepend uploads/ to match your folder structure
-
-  try {
-    const res = await fetch(`${API}/api/addProduct`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: String(title),
-        price: String(price),
-        stock: String(stock),
-        img: String(img)
-      })
-    });
-
-    if (!res.ok) {
-      alert("❌ Failed to add product");
-      return;
-    }
-
-    alert("✅ Product added successfully");
-
-    document.getElementById("pTitle").value = "";
-    document.getElementById("pPrice").value = "";
-    document.getElementById("pStock").value = "";
-    document.getElementById("pImg").value = "";
-
-    loadProducts();
-  } catch (err) {
-    console.error(err);
-    alert("❌ Server error while adding product");
-  }
+  const products = await res.json();
+  renderProducts(products);
 }
 
-async function deleteProduct(id){
-  await fetch(`${API}/api/deleteProduct`,{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({id})
+// ----------------- Render Products -----------------
+function renderProducts(list){
+  const container = document.getElementById("products");
+  container.innerHTML = "";
+  list.forEach(p => {
+    const div = document.createElement("div");
+    div.className = "product";
+    div.innerHTML = `
+      <img src="${p.img || 'https://via.placeholder.com/200'}" alt="${p.title}">
+      <input type="text" value="${p.title}" id="title_${p.id}">
+      <input type="number" value="${p.price}" id="price_${p.id}">
+      <input type="number" value="${p.stock}" id="stock_${p.id}">
+      <input type="text" value="${p.img}" id="url_${p.id}">
+      <div>
+        <button class="update" onclick="updateProduct('${p.id}')">Update</button>
+        <button class="delete" onclick="deleteProduct('${p.id}')">Delete</button>
+      </div>
+    `;
+    container.appendChild(div);
   });
+}
+
+// ----------------- Add Product -----------------
+async function addProduct(){
+  const title = document.getElementById("title").value.trim();
+  const price = Number(document.getElementById("price").value || 0);
+  const stock = Number(document.getElementById("stock").value || 0);
+  const img = document.getElementById("imageUrl").value.trim();
+
+  if(!title || !price || !stock || !img){ alert("Fill all fields"); return; }
+
+  const newProduct = {
+    id: "p_" + Math.random().toString(36).slice(2,9),
+    title,
+    price,
+    stock,
+    img
+  };
+
+  const existing = await (await fetch(`${API}/api/products`)).json();
+  const products = [...existing, newProduct];
+
+  const res = await fetch(`${API}/api/products`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(products)
+  });
+
+  if(!res.ok){ alert("Failed to add product"); return; }
+  alert("✅ Product added!");
+
+  document.getElementById("title").value = "";
+  document.getElementById("price").value = "";
+  document.getElementById("stock").value = "";
+  document.getElementById("imageUrl").value = "";
+
   loadProducts();
 }
 
-loadOrders();
+// ----------------- Update Product -----------------
+async function updateProduct(id){
+  const title = document.getElementById(`title_${id}`).value.trim();
+  const price = Number(document.getElementById(`price_${id}`).value || 0);
+  const stock = Number(document.getElementById(`stock_${id}`).value || 0);
+  const img = document.getElementById(`url_${id}`).value.trim();
+
+  const products = await (await fetch(`${API}/api/products`)).json();
+  const index = products.findIndex(p => p.id === id);
+  if(index < 0) return alert("Product not found");
+
+  products[index] = { ...products[index], title, price, stock, img };
+  await fetch(`${API}/api/products`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(products)
+  });
+  alert("✅ Product updated!");
+  loadProducts();
+}
+
+// ----------------- Delete Product -----------------
+async function deleteProduct(id){
+  const products = await (await fetch(`${API}/api/products`)).json();
+  const filtered = products.filter(p => p.id !== id);
+  await fetch(`${API}/api/products`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(filtered)
+  });
+  alert("✅ Product deleted!");
+  loadProducts();
+}
+
 loadProducts();
-</script>
-<script>
-  const adminToggle = document.querySelector('.admin-menu-toggle');
-  const adminSidebar = document.querySelector('.admin-sidebar');
-  const adminItems = document.querySelectorAll('.admin-sidebar li');
-  const adminSections = document.querySelectorAll('.admin-section');
-
-  // Toggle sidebar
-  adminToggle.addEventListener('click', () => {
-    adminSidebar.classList.toggle('active');
-  });
-
-  // Switch sections
-  adminItems.forEach(item => {
-    item.addEventListener('click', () => {
-      adminSections.forEach(sec => sec.classList.remove('active'));
-      const target = document.getElementById(item.dataset.section);
-      if (target) target.classList.add('active');
-      adminSidebar.classList.remove('active');
-    });
-  });
 </script>
 </body>
 </html>
