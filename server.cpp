@@ -10,6 +10,8 @@
 #include <chrono>
 #include <thread>
 #include <mutex>
+#include <algorithm>
+#include <iomanip>
 
 #include <boost/asio.hpp>
 #include <boost/beast.hpp>
@@ -32,16 +34,10 @@ using json = nlohmann::json;
 std::string DATA_DIR = "/var/data";
 std::string PUBLIC_DIR = "/app/public";
 
-// Environment variables for PostgreSQL
-std::string DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS;
-
-// SQLite DB path for products
-std::string SQLITE_DB_PATH;
-
-// Mutex for thread safety on SQLite
+// Mutex for SQLite thread safety
 std::mutex sqlite_mutex;
 
-// --- Utility: Read file contents (for static files) ---
+// --- Utility: Read file contents ---
 std::optional<std::string> readFile(const fs::path& path) {
     if (!fs::exists(path) || !fs::is_regular_file(path))
         return std::nullopt;
@@ -52,7 +48,7 @@ std::optional<std::string> readFile(const fs::path& path) {
     return buffer.str();
 }
 
-// --- Utility: Get MIME type based on extension ---
+// --- Utility: MIME type based on extension ---
 std::string mimeType(const std::string& path) {
     auto ext = fs::path(path).extension().string();
     if (ext == ".html") return "text/html";
@@ -72,6 +68,59 @@ int calculateShipping(double total) {
     return (total >= 5000) ? 0 : 250;
 }
 
+// --- URL encode/decode helpers ---
+std::string urlEncode(const std::string &value) {
+    std::ostringstream escaped;
+    escaped.fill('0');
+    escaped << std::hex;
+
+    for (char c : value) {
+        if (isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_' || c == '.' || c == '~') {
+            escaped << c;
+        } else {
+            escaped << '%' << std::uppercase << std::setw(2) << int((unsigned char)c) << std::nouppercase;
+        }
+    }
+    return escaped.str();
+}
+
+std::string urlDecode(const std::string& str) {
+    std::string ret;
+    char ch;
+    int i, ii;
+    for (i=0; i<str.length(); i++) {
+        if (str[i] == '%') {
+            if (i + 2 < (int)str.length() && sscanf(str.substr(i+1,2).c_str(), "%x", &ii) == 1) {
+                ch = static_cast<char>(ii);
+                ret += ch;
+                i = i+2;
+            }
+        }
+        else if (str[i] == '+') {
+            ret += ' ';
+        }
+        else {
+            ret += str[i];
+        }
+    }
+    return ret;
+}
+
+// --- Split query string into key-value pairs ---
+std::map<std::string, std::string> splitQuery(const std::string& query) {
+    std::map<std::string, std::string> result;
+    std::istringstream ss(query);
+    std::string token;
+    while (std::getline(ss, token, '&')) {
+        auto pos = token.find('=');
+        if (pos == std::string::npos) continue;
+        auto key = token.substr(0, pos);
+        auto val = token.substr(pos+1);
+        result[key] = urlDecode(val);
+    }
+    return result;
+}
+
 // --- SQLite wrapper for products ---
 class ProductDB {
     sqlite3* db = nullptr;
@@ -82,22 +131,23 @@ public:
             std::cerr << "Can't open SQLite DB: " << sqlite3_errmsg(db) << "\n";
             sqlite3_close(db);
             db = nullptr;
-        } else {
-            // Create products table if not exists
-            const char* create_sql = R"(
-                CREATE TABLE IF NOT EXISTS products (
-                    id TEXT PRIMARY KEY,
-                    title TEXT NOT NULL,
-                    price REAL NOT NULL,
-                    stock INTEGER NOT NULL,
-                    img TEXT NOT NULL
-                );
-            )";
-            char* errmsg = nullptr;
-            if (sqlite3_exec(db, create_sql, nullptr, nullptr, &errmsg) != SQLITE_OK) {
-                std::cerr << "Failed to create products table: " << errmsg << "\n";
-                sqlite3_free(errmsg);
-            }
+            throw std::runtime_error("Failed to open SQLite DB");
+        }
+        // Create products table if not exists
+        const char* create_sql = R"(
+            CREATE TABLE IF NOT EXISTS products (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                price REAL NOT NULL,
+                stock INTEGER NOT NULL,
+                img TEXT NOT NULL
+            );
+        )";
+        char* errmsg = nullptr;
+        if (sqlite3_exec(db, create_sql, nullptr, nullptr, &errmsg) != SQLITE_OK) {
+            std::string err = errmsg ? errmsg : "unknown error";
+            sqlite3_free(errmsg);
+            throw std::runtime_error("Failed to create products table: " + err);
         }
     }
 
@@ -152,16 +202,18 @@ public:
         return success;
     }
 
-    // Delete product by id
-    bool deleteProduct(const std::string& id) {
+    // Delete all products
+    bool clearAllProducts() {
         std::lock_guard<std::mutex> lock(sqlite_mutex);
-        const char* sql = "DELETE FROM products WHERE id = ?;";
-        sqlite3_stmt* stmt = nullptr;
-        if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
-        sqlite3_bind_text(stmt, 1, id.c_str(), -1, SQLITE_TRANSIENT);
-        bool success = (sqlite3_step(stmt) == SQLITE_DONE);
-        sqlite3_finalize(stmt);
-        return success;
+        char* errMsg = nullptr;
+        if (sqlite3_exec(db, "DELETE FROM products;", nullptr, nullptr, &errMsg) != SQLITE_OK) {
+            if (errMsg) {
+                std::cerr << "Error deleting products: " << errMsg << std::endl;
+                sqlite3_free(errMsg);
+            }
+            return false;
+        }
+        return true;
     }
 
     // Get product by id
@@ -189,58 +241,45 @@ public:
 
 // --- PostgreSQL wrapper for orders/customers ---
 class OrderDB {
-    pqxx::connection* conn = nullptr;
+    pqxx::connection conn_;
 
 public:
-    OrderDB(const std::string& connStr) {
-        try {
-            conn = new pqxx::connection(connStr);
-            if (!conn->is_open()) {
-                std::cerr << "Cannot open PostgreSQL connection\n";
-                delete conn;
-                conn = nullptr;
-            } else {
-                // Initialize tables if not exist
-                pqxx::work txn(*conn);
-                txn.exec(R"(
-                    CREATE TABLE IF NOT EXISTS customers (
-                        id SERIAL PRIMARY KEY,
-                        name TEXT NOT NULL,
-                        contact TEXT NOT NULL,
-                        email TEXT,
-                        address TEXT NOT NULL
-                    );
-                )");
-                txn.exec(R"(
-                    CREATE TABLE IF NOT EXISTS orders (
-                        id SERIAL PRIMARY KEY,
-                        customer_id INTEGER REFERENCES customers(id),
-                        product_id TEXT NOT NULL,
-                        total_amount NUMERIC NOT NULL,
-                        shipping_charge NUMERIC NOT NULL,
-                        payment_method TEXT NOT NULL,
-                        order_date TIMESTAMP NOT NULL DEFAULT NOW()
-                    );
-                )");
-                txn.commit();
-            }
-        } catch (const std::exception& e) {
-            std::cerr << "PostgreSQL connection error: " << e.what() << "\n";
+    OrderDB(const std::string& connStr) : conn_(connStr) {
+        if (!conn_.is_open()) {
+            throw std::runtime_error("Cannot open PostgreSQL connection");
         }
-    }
-    ~OrderDB() {
-        if (conn) conn->close();
-        delete conn;
+        // Initialize tables if not exist
+        pqxx::work txn(conn_);
+        txn.exec(R"(
+            CREATE TABLE IF NOT EXISTS customers (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                contact TEXT NOT NULL,
+                email TEXT,
+                address TEXT NOT NULL
+            );
+        )");
+        txn.exec(R"(
+            CREATE TABLE IF NOT EXISTS orders (
+                id SERIAL PRIMARY KEY,
+                customer_id INTEGER REFERENCES customers(id),
+                product_id TEXT NOT NULL,
+                total_amount NUMERIC NOT NULL,
+                shipping_charge NUMERIC NOT NULL,
+                payment_method TEXT NOT NULL,
+                order_date TIMESTAMP NOT NULL DEFAULT NOW()
+            );
+        )");
+        txn.commit();
     }
 
     bool isConnected() const {
-        return conn && conn->is_open();
+        return conn_.is_open();
     }
 
     // Insert customer and return customer_id
     int addCustomer(const json& cust) {
-        if (!isConnected()) return -1;
-        pqxx::work txn(*conn);
+        pqxx::work txn(conn_);
         pqxx::result r = txn.exec_params(
             "INSERT INTO customers (name, contact, email, address) VALUES ($1, $2, $3, $4) RETURNING id;",
             cust["name"].get<std::string>(), cust["contact"].get<std::string>(),
@@ -254,7 +293,7 @@ public:
     bool addOrder(const json& order) {
         if (!isConnected()) return false;
         try {
-            pqxx::work txn(*conn);
+            pqxx::work txn(conn_);
             int cust_id = addCustomer(order["customer"]);
             if (cust_id < 0) return false;
 
@@ -279,7 +318,7 @@ public:
         std::vector<json> orders;
         if (!isConnected()) return orders;
         try {
-            pqxx::work txn(*conn);
+            pqxx::work txn(conn_);
             pqxx::result r = txn.exec(R"(
                 SELECT o.id, c.name, c.contact, c.email, c.address, o.product_id,
                        o.total_amount, o.shipping_charge, o.payment_method, o.order_date
@@ -305,6 +344,37 @@ public:
             std::cerr << "Get orders error: " << e.what() << "\n";
         }
         return orders;
+    }
+
+    // Get order and customer info by order ID
+    std::optional<json> getOrderById(int orderId) {
+        try {
+            pqxx::work txn(conn_);
+            pqxx::result r = txn.exec_params(R"(
+                SELECT o.id, c.name, c.contact, c.email, c.address, o.product_id,
+                       o.total_amount, o.shipping_charge, o.payment_method, o.order_date
+                FROM orders o
+                JOIN customers c ON o.customer_id = c.id
+                WHERE o.id = $1 LIMIT 1;
+            )", orderId);
+            if (r.empty()) return std::nullopt;
+            auto row = r[0];
+            json order;
+            order["id"] = row["id"].as<int>();
+            order["name"] = row["name"].as<std::string>();
+            order["contact"] = row["contact"].as<std::string>();
+            order["email"] = row["email"].as<std::string>();
+            order["address"] = row["address"].as<std::string>();
+            order["product_id"] = row["product_id"].as<std::string>();
+            order["total_amount"] = row["total_amount"].as<double>();
+            order["shipping_charge"] = row["shipping_charge"].as<double>();
+            order["payment_method"] = row["payment_method"].as<std::string>();
+            order["order_date"] = row["order_date"].as<std::string>();
+            return order;
+        } catch (const std::exception& e) {
+            std::cerr << "Get order by ID error: " << e.what() << "\n";
+            return std::nullopt;
+        }
     }
 };
 
@@ -345,6 +415,8 @@ private:
         beast::flat_buffer buffer_;
         ProductDB& productDB_;
         OrderDB& orderDB_;
+        http::request<http::string_body> req_;
+        http::response<http::string_body> res_;
 
     public:
         Session(tcp::socket socket, ProductDB& pdb, OrderDB& odb)
@@ -359,14 +431,12 @@ private:
                 [self](beast::error_code ec, std::size_t bytes_transferred){
                     if (!ec)
                         self->handleRequest();
+                    else
+                        self->fail(ec, "read");
                 });
         }
 
-        http::request<http::string_body> req_;
-        http::response<http::string_body> res_;
-
         void handleRequest() {
-            // Dispatch based on method and target
             if (req_.method() == http::verb::get) {
                 handleGet();
             } else if (req_.method() == http::verb::post) {
@@ -379,7 +449,6 @@ private:
         void handleGet() {
             std::string target = std::string(req_.target());
 
-            // Serve static files
             if (target == "/" || target == "/index.html") {
                 serveFile("/index.html", "text/html");
             }
@@ -396,7 +465,6 @@ private:
                 handleShippingLabel();
             }
             else {
-                // Try static file from public folder
                 std::string filepath = PUBLIC_DIR + target;
                 auto content = readFile(filepath);
                 if (content) {
@@ -418,23 +486,109 @@ private:
             }
         }
 
-        void serveFile(const std::string& relpath, const std::string& contentType) {
-            std::string filepath = PUBLIC_DIR + relpath;
-            auto content = readFile(filepath);
-            if (!content) {
+        void serveFile(const std::string& path, const std::string& mime) {
+            auto content = readFile(PUBLIC_DIR + path);
+            if (content) {
+                sendResponse(http::status::ok, *content, mime);
+            } else {
                 sendResponse(http::status::not_found, "File not found");
-                return;
             }
-            sendResponse(http::status::ok, *content, contentType);
         }
 
-        void sendResponse(http::status status, const std::string& body, const std::string& contentType = "text/plain") {
+        void handleGetProducts() {
+            auto products = productDB_.getAllProducts();
+            json response = products;
+            sendResponse(http::status::ok, response.dump(), "application/json");
+        }
+
+        void handleGetOrders() {
+            auto orders = orderDB_.getAllOrders();
+            json response = orders;
+            sendResponse(http::status::ok, response.dump(), "application/json");
+        }
+
+        void handleShippingLabel() {
+            auto query_pos = req_.target().find('?');
+            if (query_pos == std::string::npos) {
+                sendResponse(http::status::bad_request, "Missing order id");
+                return;
+            }
+            auto query_str = req_.target().substr(query_pos + 1);
+            auto params = splitQuery(query_str);
+            auto it = params.find("id");
+            if (it == params.end()) {
+                sendResponse(http::status::bad_request, "Missing order id parameter");
+                return;
+            }
+            int orderId = std::stoi(it->second);
+            auto orderOpt = orderDB_.getOrderById(orderId);
+            if (!orderOpt) {
+                sendResponse(http::status::not_found, "Order not found");
+                return;
+            }
+            json order = *orderOpt;
+            // Simplified shipping label JSON output
+            json label = {
+                {"order_id", order["id"]},
+                {"name", order["name"]},
+                {"contact", order["contact"]},
+                {"address", order["address"]},
+                {"product_id", order["product_id"]},
+                {"order_date", order["order_date"]}
+            };
+            sendResponse(http::status::ok, label.dump(4), "application/json");
+        }
+
+        void handlePostProducts() {
+            try {
+                auto body_json = json::parse(req_.body());
+                if (body_json.is_array()) {
+                    productDB_.clearAllProducts();
+                    for (const auto& prod : body_json) {
+                        productDB_.upsertProduct(prod);
+                    }
+                    sendResponse(http::status::ok, R"({"message":"Products updated successfully"})", "application/json");
+                } else {
+                    sendResponse(http::status::bad_request, R"({"error":"Expected JSON array"})", "application/json");
+                }
+            } catch (json::parse_error& e) {
+                sendResponse(http::status::bad_request, R"({"error":"Invalid JSON"})", "application/json");
+            }
+        }
+
+        void handlePostOrders() {
+            try {
+                auto body_json = json::parse(req_.body());
+
+                // Basic validation for required fields
+                if (!body_json.contains("customer") || !body_json.contains("product_id") || 
+                    !body_json.contains("total_amount") || !body_json.contains("payment_method")) {
+                    sendResponse(http::status::bad_request, R"({"error":"Missing required order fields"})", "application/json");
+                    return;
+                }
+
+                // Calculate shipping charge
+                double total = body_json["total_amount"].get<double>();
+                int shipping_charge = calculateShipping(total);
+                body_json["shipping_charge"] = shipping_charge;
+
+                if (orderDB_.addOrder(body_json)) {
+                    sendResponse(http::status::ok, R"({"message":"Order placed successfully"})", "application/json");
+                } else {
+                    sendResponse(http::status::internal_server_error, R"({"error":"Failed to add order"})", "application/json");
+                }
+            } catch (json::parse_error& e) {
+                sendResponse(http::status::bad_request, R"({"error":"Invalid JSON"})", "application/json");
+            }
+        }
+
+        void sendResponse(http::status statusCode, const std::string& body, const std::string& contentType = "text/plain") {
             res_.version(req_.version());
-            res_.keep_alive(false);
+            res_.result(statusCode);
+            res_.set(http::field::server, "Boost.Beast Server");
             res_.set(http::field::content_type, contentType);
-            res_.result(status);
             res_.body() = body;
-            res_.prepare_payload();
+            res_.content_length(body.size());
 
             auto self = shared_from_this();
             http::async_write(socket_, res_,
@@ -443,308 +597,9 @@ private:
                 });
         }
 
-        // Handle /api/products GET: Return all products JSON
-        void handleGetProducts() {
-            auto products = productDB_.getAllProducts();
-            json j(products);
-            sendResponse(http::status::ok, j.dump(), "application/json");
-        }
-// Handle /api/products POST: Replace all products (from admin panel)
-        void handlePostProducts() {
-            try {
-                auto body = req_.body();
-                auto data = json::parse(body);
-
-                if (!data.is_array()) {
-                    sendResponse(http::status::bad_request, "Expected JSON array");
-                    return;
-                }
-
-                // Clear existing products and insert new
-                {
-                    // Delete all existing products first
-                    // SQLite does not support TRUNCATE, so:
-                    std::lock_guard<std::mutex> lock(sqlite_mutex);
-                    char* errMsg = nullptr;
-                    sqlite3_exec(productDB_.db, "DELETE FROM products;", nullptr, nullptr, &errMsg);
-                    if (errMsg) {
-                        std::cerr << "Error deleting products: " << errMsg << std::endl;
-                        sqlite3_free(errMsg);
-                    }
-                }
-
-                // Insert all products
-                for (const auto& p : data) {
-                    if (!p.contains("id") || !p.contains("title") || !p.contains("price") || !p.contains("stock") || !p.contains("img")) {
-                        sendResponse(http::status::bad_request, "Invalid product format");
-                        return;
-                    }
-                    bool ok = productDB_.upsertProduct(p);
-                    if (!ok) {
-                        sendResponse(http::status::internal_server_error, "Failed to save products");
-                        return;
-                    }
-                }
-                sendResponse(http::status::ok, "Products updated");
-            } catch (const std::exception& e) {
-                sendResponse(http::status::bad_request, std::string("Invalid JSON: ") + e.what());
-            }
-        }
-
-        // Handle /api/orders GET: Return all orders with customer info
-        void handleGetOrders() {
-            auto orders = orderDB_.getAllOrders();
-
-            // To include product title & img in response, enrich orders:
-            auto products = productDB_.getAllProducts();
-            std::map<std::string, json> productMap;
-            for (const auto& p : products) {
-                productMap[p["id"].get<std::string>()] = p;
-            }
-
-            json jOrders = json::array();
-            for (auto& o : orders) {
-                json enriched = o;
-                auto pid = o["product_id"].get<std::string>();
-                if (productMap.find(pid) != productMap.end()) {
-                    enriched["product"] = productMap[pid]["title"];
-                    enriched["product_img"] = productMap[pid]["img"];
-                } else {
-                    enriched["product"] = "Unknown";
-                    enriched["product_img"] = "";
-                }
-                // Include shipping charge in total display if you want, or separate
-                jOrders.push_back(enriched);
-            }
-
-            sendResponse(http::status::ok, jOrders.dump(), "application/json");
-        }
-
-        // Handle /api/orders POST: Place order, send WhatsApp msg, save to DB
-        void handlePostOrders() {
-            try {
-                auto data = json::parse(req_.body());
-
-                // Validate input keys
-                if (!data.contains("product") || !data.contains("name") || !data.contains("contact") || !data.contains("email") || !data.contains("address")) {
-                    sendResponse(http::status::bad_request, "Missing required fields");
-                    return;
-                }
-                std::string productId = data["product"].get<std::string>();
-                std::string name = data["name"].get<std::string>();
-                std::string contact = data["contact"].get<std::string>();
-                std::string email = data["email"].get<std::string>();
-                std::string address = data["address"].get<std::string>();
-
-                // Fetch product info for price and stock check
-                auto optProduct = productDB_.getProduct(productId);
-                if (!optProduct) {
-                    sendResponse(http::status::bad_request, "Invalid product");
-                    return;
-                }
-                auto product = optProduct.value();
-
-                if (product["stock"].get<int>() <= 0) {
-                    sendResponse(http::status::bad_request, "Product out of stock");
-                    return;
-                }
-
-                double price = product["price"].get<double>();
-                int stock = product["stock"].get<int>();
-
-                // Calculate shipping charge
-                double shippingCharge = calculateShipping(price);
-
-                double totalAmount = price + shippingCharge;
-
-                // Payment method placeholder (you can enhance later)
-                std::string paymentMethod = "Cash on Delivery";
-
-                // Save order to DB
-                json orderJson = {
-                    {"customer", {
-                        {"name", name},
-                        {"contact", contact},
-                        {"email", email},
-                        {"address", address}
-                    }},
-                    {"product_id", productId},
-                    {"total_amount", totalAmount},
-                    {"shipping_charge", shippingCharge},
-                    {"payment_method", paymentMethod}
-                };
-
-                if (!orderDB_.addOrder(orderJson)) {
-                    sendResponse(http::status::internal_server_error, "Failed to place order");
-                    return;
-                }
-
-                // Decrement product stock in SQLite DB
-                product["stock"] = stock - 1;
-                productDB_.upsertProduct(product);
-
-                // Send WhatsApp notification (simulate by returning URL)
-                std::string waMsg = "Hello " + name + ", your order for '" + product["title"].get<std::string>() +
-                    "' has been received. Total: Rs." + std::to_string(totalAmount) + ". Thank you for shopping with us!";
-
-                // WhatsApp link: wa.me/<countrycode><number>?text=...
-                std::string waNumber = contact;
-                // Remove any non-digit chars from number, assume Pakistan country code +92 for example:
-                waNumber.erase(std::remove_if(waNumber.begin(), waNumber.end(),
-                                              [](char c){ return !isdigit(c); }), waNumber.end());
-                if (waNumber[0] == '0') waNumber.erase(0,1);
-                std::string waUrl = "https://wa.me/92" + waNumber + "?text=" +
-                    beast::detail::base64_encode(beast::detail::to_string_view(beast::detail::url_encode(waMsg)));
-
-                // You can return this WhatsApp URL for frontend to open or just text msg
-                // For simplicity, return simple message without base64 encoding:
-                std::string waTextUrl = "https://wa.me/92" + waNumber + "?text=" + urlEncode(waMsg);
-
-                // Respond success
-                sendResponse(http::status::ok, "Order placed successfully! You can send WhatsApp message: " + waTextUrl);
-
-            } catch (const std::exception& e) {
-                sendResponse(http::status::bad_request, std::string("Invalid JSON or error: ") + e.what());
-            }
-        }
-
-        // Shipping label API: /api/shippingLabel?id=order_id
-        void handleShippingLabel() {
-            auto target = std::string(req_.target());
-            auto pos = target.find("?");
-            if (pos == std::string::npos) {
-                sendResponse(http::status::bad_request, "Missing order id");
-                return;
-            }
-            auto query = target.substr(pos+1);
-            std::string orderId;
-            for (const auto& kv : splitQuery(query)) {
-                if (kv.first == "id") {
-                    orderId = kv.second;
-                    break;
-                }
-            }
-            if (orderId.empty()) {
-                sendResponse(http::status::bad_request, "Missing id parameter");
-                return;
-            }
-
-            int oid = std::stoi(orderId);
-            // Fetch order and customer info from DB
-            try {
-                pqxx::work txn(*orderDB_.conn);
-                pqxx::result r = txn.exec_params(R"(
-                    SELECT o.id, c.name, c.contact, c.email, c.address, o.product_id,
-                           o.total_amount, o.shipping_charge, o.payment_method, o.order_date
-                    FROM orders o
-                    JOIN customers c ON o.customer_id = c.id
-                    WHERE o.id = $1 LIMIT 1;
-                )", oid);
-                if (r.empty()) {
-                    sendResponse(http::status::not_found, "Order not found");
-                    return;
-                }
-                auto row = r[0];
-                std::stringstream label;
-                label << "Shipping Label\n";
-                label << "-------------------------\n";
-                label << "Order ID: " << row["id"].as<int>() << "\n";
-                label << "Name: " << row["name"].as<std::string>() << "\n";
-                label << "Contact: " << row["contact"].as<std::string>() << "\n";
-                label << "Email: " << row["email"].as<std::string>() << "\n";
-                label << "Address: " << row["address"].as<std::string>() << "\n";
-                label << "Product ID: " << row["product_id"].as<std::string>() << "\n";
-                label << "Total Amount: Rs." << row["total_amount"].as<double>() << "\n";
-                label << "Shipping Charge: Rs." << row["shipping_charge"].as<double>() << "\n";
-                label << "Payment Method: " << row["payment_method"].as<std::string>() << "\n";
-                label << "Order Date: " << row["order_date"].as<std::string>() << "\n";
-
-                sendResponse(http::status::ok, label.str(), "text/plain");
-            } catch (const std::exception& e) {
-                sendResponse(http::status::internal_server_error, "Error fetching shipping label");
-            }
-        }
-
-        // --- Helpers ---
-
-        static std::map<std::string, std::string> splitQuery(const std::string& query) {
-            std::map<std::string, std::string> result;
-            std::istringstream ss(query);
-            std::string token;
-            while (std::getline(ss, token, '&')) {
-                auto pos = token.find('=');
-                if (pos == std::string::npos) continue;
-                auto key = token.substr(0, pos);
-                auto val = token.substr(pos+1);
-                result[key] = urlDecode(val);
-            }
-            return result;
-        }
-
-        static std::string urlDecode(const std::string& str) {
-            std::string ret;
-            char ch;
-            int i, ii;
-            for (i=0; i<str.length(); i++) {
-                if (str[i] == '%') {
-                    sscanf(str.substr(i+1,2).c_str(), "%x", &ii);
-                    ch = static_cast<char>(ii);
-                    ret += ch;
-                    i = i+2;
-                }
-                else if (str[i] == '+') {
-                    ret += ' ';
-                }
-                else {
-                    ret += str[i];
-                }
-            }
-            return ret;
-        }
-
-        static std::string urlEncode(const std::string &value) {
-            std::ostringstream escaped;
-            escaped.fill('0');
-            escaped << std::hex;
-
-            for (char c : value) {
-                if (isalnum((unsigned char)c) || c == '-' || c == '_' || c == '.' || c == '~') {
-                    escaped << c;
-                } else {
-                    escaped << '%' << std::uppercase << std::setw(2) << int((unsigned char)c) << std::nouppercase;
-                }
-            }
-            return escaped.str();
+        void fail(beast::error_code ec, char const* what) {
+            if (ec == net::error::operation_aborted) return;
+            std::cerr << what << ": " << ec.message() << "\n";
         }
     };
 };
-
-int main() {
-    try {
-        // Read environment variables for DB and config
-        DB_HOST = std::getenv("DB_HOST") ? std::getenv("DB_HOST") : "";
-        DB_PORT = std::getenv("DB_PORT") ? std::getenv("DB_PORT") : "5432";
-        DB_NAME = std::getenv("DB_NAME") ? std::getenv("DB_NAME") : "";
-        DB_USER = std::getenv("DB_USER") ? std::getenv("DB_USER") : "";
-        DB_PASS = std::getenv("DB_PASS") ? std::getenv("DB_PASS") : "";
-
-        DATA_DIR = std::getenv("DATA_DIR") ? std::getenv("DATA_DIR") : "/var/data";
-        SQLITE_DB_PATH = DATA_DIR + "/products.db";
-
-        std::string pgConnStr = "host=" + DB_HOST +
-                                " port=" + DB_PORT +
-                                " dbname=" + DB_NAME +
-                                " user=" + DB_USER +
-                                " password=" + DB_PASS;
-
-        unsigned short port = 8080;
-
-        Server server("0.0.0.0", port, SQLITE_DB_PATH, pgConnStr);
-        server.run();
-
-    } catch (const std::exception& e) {
-        std::cerr << "Fatal error: " << e.what() << "\n";
-        return EXIT_FAILURE;
-    }
-    return EXIT_SUCCESS;
-}
