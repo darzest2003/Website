@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <link rel="stylesheet" href="admin.css">
 <style>
-body { font-family: Arial; margin:0; background:#f4f6f8; }
+body { font-family: Arial, sans-serif; margin:0; background:#f4f6f8; }
 .topbar { background:#111; color:#fff; padding:10px 20px; display:flex; justify-content:space-between; align-items:center; }
 .sidebar { position:fixed; top:50px; left:0; width:220px; bottom:0; background:#1e1e1e; color:#fff; padding:10px; overflow-y:auto; }
 .sidebar li { list-style:none; padding:12px; cursor:pointer; }
@@ -16,6 +16,8 @@ body { font-family: Arial; margin:0; background:#f4f6f8; }
 .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:15px; }
 table { width:100%; border-collapse:collapse; background:#fff; margin-top:15px; }
 th,td { padding:10px; border-bottom:1px solid #ddd; text-align:left; }
+th { background:#f0f0f0; }
+tr:hover { background:#f9f9f9; }
 input,textarea,select,button { padding:10px; margin:5px 0; width:100%; box-sizing:border-box; }
 button { cursor:pointer; background:#111; color:#fff; border:none; border-radius:4px; }
 button:hover { background:#333; }
@@ -69,13 +71,22 @@ button:hover { background:#333; }
 <div id="orders" class="page hidden">
   <div class="card">
     <h3>Received Orders</h3>
-    <table>
+    <table id="ordersTable">
       <thead>
         <tr>
-          <th>Order ID</th><th>Name</th><th>Contact</th><th>Email</th><th>Address</th><th>Payment</th><th>Total</th><th>Shipping</th><th>Items</th><th>Label</th>
+          <th>ID</th>
+          <th>Customer</th>
+          <th>Contact</th>
+          <th>Email</th>
+          <th>Address</th>
+          <th>Items</th>
+          <th>Total</th>
+          <th>Payment</th>
+          <th>Shipping</th>
+          <th>Label</th>
         </tr>
       </thead>
-      <tbody id="ordersTable"></tbody>
+      <tbody></tbody>
     </table>
   </div>
 </div>
@@ -92,7 +103,7 @@ if(sessionStorage.getItem("adminLoggedIn")!=="true"){ location.href="admin_login
 function logout(){ sessionStorage.clear(); location.href="admin_login.html"; }
 function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),2500); }
 
-/* ============== NAV ============== */
+/* ============== NAVIGATION ============== */
 document.querySelectorAll(".sidebar li").forEach(li=>{
   li.onclick=()=>{
     document.querySelectorAll(".sidebar li").forEach(i=>i.classList.remove("active"));
@@ -127,7 +138,7 @@ async function loadProducts(){
 async function loadOrders(){
   try{
     const orders = await (await fetch(`${API}/api/orders`)).json();
-    const tbody = document.getElementById("ordersTable");
+    const tbody = document.querySelector("#ordersTable tbody");
     tbody.innerHTML="";
     orders.reverse().forEach(o=>{
       tbody.innerHTML+=`<tr>
@@ -136,10 +147,10 @@ async function loadOrders(){
         <td>${o.contact}</td>
         <td>${o.email||'-'}</td>
         <td>${o.address}</td>
-        <td>${o.payment}</td>
+        <td>${o.items.map(i=>i.title+'×'+i.quantity).join(", ")}</td>
         <td>Rs.${o.totalAmount}</td>
+        <td>${o.payment}</td>
         <td>Rs.${o.shipping||0}</td>
-        <td>${o.items.map(i=>`${i.title}×${i.quantity}`).join(", ")}</td>
         <td><button onclick="downloadLabel('${o.id}')">Download</button></td>
       </tr>`;
     });
