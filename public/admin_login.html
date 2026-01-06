@@ -21,14 +21,19 @@
       border-radius: 10px;
       box-shadow: 0 0 15px red;
       text-align: center;
+      width: 300px;
+    }
+    h2 {
+      margin-bottom: 20px;
     }
     input {
       display: block;
       margin: 10px auto;
       padding: 10px;
-      width: 80%;
+      width: 90%;
       border: none;
       border-radius: 5px;
+      font-size: 16px;
     }
     button {
       background: red;
@@ -37,6 +42,9 @@
       padding: 10px 20px;
       border-radius: 5px;
       cursor: pointer;
+      font-size: 16px;
+      margin-top: 10px;
+      width: 95%;
     }
     button:hover {
       background: darkred;
@@ -78,18 +86,25 @@
   <script>
     const API_BASE = "https://cppbackened.onrender.com";
 
+    // Redirect if already logged in
+    if (sessionStorage.getItem("adminLoggedIn") === "true") {
+      window.location.href = "admin.html";
+    }
+
     const form = document.getElementById("loginForm");
 
     form.addEventListener("submit", async function(event) {
       event.preventDefault();
+
       const username = document.getElementById("username").value;
       const password = document.getElementById("password").value;
 
       try {
+        // Send URL-encoded data to match C++ backend
         let res = await fetch(`${API_BASE}/api/login`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, password })
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
         });
 
         if (res.ok) {
@@ -103,10 +118,6 @@
         console.error(err);
       }
     });
-
-    if (sessionStorage.getItem("adminLoggedIn") === "true") {
-      window.location.href = "admin.html";
-    }
   </script>
 </body>
 </html>
