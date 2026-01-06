@@ -1,1284 +1,750 @@
-// server.cpp
-// Polished single-file C++ HTTP server for ONLINETRADERZ
-// SQLite port of original file-backed server (ready-to-compile).
-// Compile with: g++ server.cpp -o server -pthread -lsqlite3
-#include <nlohmann/json.hpp>
 #include <iostream>
-#include <functional>
-#include <netinet/tcp.h>
-#include <cstdlib>
+#include <string>
 #include <fstream>
 #include <sstream>
-#include <string>
-#include <vector>
 #include <map>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <algorithm>
-#include <cstring>
-#include <cerrno>
-#include <cctype>
+#include <vector>
+#include <cstdlib>
+#include <filesystem>
+#include <optional>
 #include <chrono>
-#include <iomanip>
-#include <random>
-#include <fcntl.h>
-#include <signal.h>
 #include <thread>
 #include <mutex>
-#include <condition_variable>
-#include <queue>
-#include <atomic>
-#include <sqlite3.h>
 
-using namespace std;
+#include <boost/asio.hpp>
+#include <boost/beast.hpp>
+#include <boost/beast/http.hpp>
+#include <boost/beast/version.hpp>
 
-// =================== Configuration & Globals for Enhancements ===================
-static atomic<bool> g_running(true);
-static int g_server_fd = -1;
-static string g_data_dir = "data";
-static int g_max_workers = 4;
+#include <pqxx/pqxx>        // PostgreSQL C++ lib
+#include <sqlite3.h>        // SQLite3 C API
+#include <nlohmann/json.hpp>
 
-// =================== Simple structured logging ===================
-enum LogLevel { LOG_DEBUG=0, LOG_INFO=1, LOG_WARN=2, LOG_ERROR=3 };
-
-static const char* lvlToStr(LogLevel l) {
-switch(l){ case LOG_DEBUG: return "DEBUG"; case LOG_INFO: return "INFO"; case LOG_WARN: return "WARN"; default: return "ERROR"; }
-}
-
-static void logMsg(LogLevel lvl, const string &msg) {
-using namespace chrono;
-auto now = system_clock::now();
-time_t tt = system_clock::to_time_t(now);
-tm tm;
-gmtime_r(&tt, &tm);
-char buf[64];
-strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &tm);
-cerr << "[" << buf << "] " << lvlToStr(lvl) << " - " << msg << "\n";
-}
-
-#define LOGI(msg) logMsg(LOG_INFO, msg)
-#define LOGW(msg) logMsg(LOG_WARN, msg)
-#define LOGE(msg) logMsg(LOG_ERROR, msg)
-#define LOGD(msg) logMsg(LOG_DEBUG, msg)
-
-// =================== ThreadPool (simple) ===================
-class ThreadPool {
-public:
-ThreadPool(int workers = 4) : stop(false) {
-for (int i=0;i<workers;++i) {
-threads.emplace_back([this,i]{
-while (true) {
-function<void()> task;
-{
-unique_lock<mutex> lock(this->mtx);
-this->cv.wait(lock, [this]{ return this->stop || !this->tasks.empty(); });
-if (this->stop && this->tasks.empty()) return;
-task = move(this->tasks.front());
-this->tasks.pop();
-}
-try {
-task();
-} catch (const exception &ex) {
-LOGE(string("Unhandled exception in worker: ") + ex.what());
-} catch (...) {
-LOGE("Unhandled non-exception thrown in worker");
-}
-}
-});
-}
-}
-~ThreadPool() {
-{
-unique_lock<mutex> lock(mtx);
-stop = true;
-}
-cv.notify_all();
-for (auto &t : threads) if (t.joinable()) t.join();
-}
-void enqueue(function<void()> f) {
-{
-unique_lock<mutex> lock(mtx);
-if (stop) throw runtime_error("enqueue on stopped ThreadPool");
-tasks.push(move(f));
-}
-cv.notify_one();
-}
-private:
-vector<thread> threads;
-queue<function<void()>> tasks;
-mutex mtx;
-condition_variable cv;
-bool stop;
-};
-
-// =================== Graceful shutdown handling ===================
-static ThreadPool *g_threadpool_ptr = nullptr;
-static sqlite3 *g_db = nullptr;
-static mutex g_storage_mutex; // simple mutex to guard products/orders vectors & db writes
-
-static void gracefulShutdown(int signo) {
-string s = "Received signal ";
-s += to_string(signo);
-LOGI(s + " - initiating graceful shutdown");
-g_running.store(false);
-if (g_server_fd >= 0) {
-// closing listening socket will unblock accept
-close(g_server_fd);
-g_server_fd = -1;
-}
-// allow threadpool destructor to run and finish tasks
-}
-
-// =================== End of enhancements; original code begins ===================
-
-// ------------------- Structures -------------------
-struct Order {
-string id;
-string product; // product summary
-string name;
-string contact;
-string email;
-string address;
-string productPrice;
-string deliveryCharges;
-string totalAmount;
-string payment;
-string createdAt;
-};
-
-struct Product {
-string id;
-string title;
-double price;
-string img;
-int stock;
-};
-
-// ------------------- Globals -------------------
-vector<Order> orders;
-vector<Product> products;
-int currentProductID = 0;
-int currentOrderID = 0;
-
-// ------------------- Helpers -------------------
-string ensureDataFolder(const string &filename) {
-struct stat info;
-if (stat(g_data_dir.c_str(), &info) != 0) {
-// attempt to create data directory
-if (mkdir(g_data_dir.c_str(), 0777) != 0 && errno != EEXIST) {
-cerr << "mkdir failed: " << strerror(errno) << "\n";
-} else {
-LOGI(string("Created data directory: ") + g_data_dir);
-}
-}
-// build path relative to data dir
-if (filename.empty()) return g_data_dir + "/";
-return g_data_dir + "/" + filename;
-}
-
-string trim(const string &s) {
-auto start = s.begin();
-while (start != s.end() && isspace((unsigned char)*start)) start++;
-auto end = s.end();
-if (start == end) return "";
-do { end--; } while (distance(start, end) > 0 && isspace((unsigned char)*end));
-return string(start, end + 1);
-}
-
-string nowISO8601() {
-using namespace chrono;
-auto t = system_clock::now();
-time_t tt = system_clock::to_time_t(t);
-tm tm;
-gmtime_r(&tt, &tm);
-char buf[64];
-strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &tm);
-return string(buf);
-}
-
-string readFile(const string &path) {
-ifstream file(path, ios::in);
-if (!file.is_open()) return "";
-stringstream buffer;
-buffer << file.rdbuf();
-return buffer.str();
-}
-
-// --- NEW: read file in binary mode and return as string of bytes ---
-string readFileBinary(const string &path) {
-ifstream file(path, ios::in | ios::binary);
-if (!file.is_open()) return "";
-std::ostringstream ss;
-ss << file.rdbuf();
-return ss.str();
-}
-
-// atomic write helper: write to temp file then rename, ensure fsync
-bool atomicWriteFile(const string &path, const string &content) {
-// ensure parent directory exists
-string dir;
-size_t pos = path.find_last_of('/');
-if (pos == string::npos) dir = "";
-else dir = path.substr(0, pos+1);
-
-if (!dir.empty()) {  
-    struct stat info;  
-    if (stat(dir.c_str(), &info) != 0) {  
-        if (mkdir(dir.c_str(), 0777) != 0 && errno != EEXIST) {  
-            cerr << "mkdir failed: " << strerror(errno) << "\n";  
-            // continue; attempt to write anyway  
-        }  
-    }  
-}  
-
-string tmp = path + ".tmp";  
-int fd = open(tmp.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);  
-if (fd < 0) {  
-    cerr << "Failed to open temp file for writing: " << tmp << " : " << strerror(errno) << "\n";  
-    return false;  
-}  
-ssize_t written = write(fd, content.c_str(), content.size());  
-if (written < 0 || (size_t)written != content.size()) {  
-    cerr << "Failed to write entire content to temp file: " << tmp << " : " << strerror(errno) << "\n";  
-    close(fd);  
-    return false;  
-}  
-// flush to disk  
-if (fsync(fd) != 0) {  
-    cerr << "fsync failed on temp file: " << tmp << " : " << strerror(errno) << "\n";  
-}  
-close(fd);  
-if (rename(tmp.c_str(), path.c_str()) != 0) {  
-    cerr << "rename failed: " << strerror(errno) << "\n";  
-    // attempt to remove tmp  
-    unlink(tmp.c_str());  
-    return false;  
-}  
-return true;
-
-}
-
-// ------------------- Storage (products & orders) using SQLite -------------------
-
-// Create DB and tables if not exist
-bool initDatabase() {
-string dbPath = ensureDataFolder("server.db");
-int rc = sqlite3_open(dbPath.c_str(), &g_db);
-if (rc != SQLITE_OK) {
-LOGE(string("Failed to open SQLite database: ") + sqlite3_errmsg(g_db));
-if (g_db) sqlite3_close(g_db);
-g_db = nullptr;
-return false;
-}
-const char *createSQL =
-"BEGIN;"
-"CREATE TABLE IF NOT EXISTS products ("
-"id TEXT PRIMARY KEY,"
-"title TEXT,"
-"price REAL,"
-"img TEXT,"
-"stock INTEGER"
-");"
-"CREATE TABLE IF NOT EXISTS orders ("
-"id TEXT PRIMARY KEY,"
-"product TEXT,"
-"name TEXT,"
-"contact TEXT,"
-"email TEXT,"
-"address TEXT,"
-"productPrice TEXT,"
-"deliveryCharges TEXT,"
-"totalAmount TEXT,"
-"payment TEXT,"
-"createdAt TEXT"
-");"
-"COMMIT;";
-char *err = nullptr;
-rc = sqlite3_exec(g_db, createSQL, nullptr, nullptr, &err);
-if (rc != SQLITE_OK) {
-LOGE(string("Failed to create tables: ") + (err ? err : "unknown"));
-if (err) sqlite3_free(err);
-return false;
-}
-// Enable WAL mode for better concurrency (best-effort)
-sqlite3_exec(g_db, "PRAGMA journal_mode=WAL;", nullptr, nullptr, nullptr);
-return true;
-}
-
-// Attempt to migrate existing text files into SQLite if tables are empty
-void migrateTextFilesIfNeeded() {
-lock_guard<mutex> lock(g_storage_mutex);
-if (!g_db) return;
-
-// Check if products table is empty  
-int count = 0;  
-sqlite3_stmt *stmt = nullptr;  
-const char *countProductsSql = "SELECT COUNT(*) FROM products;";  
-if (sqlite3_prepare_v2(g_db, countProductsSql, -1, &stmt, nullptr) == SQLITE_OK) {  
-    if (sqlite3_step(stmt) == SQLITE_ROW) count = sqlite3_column_int(stmt, 0);  
-}  
-sqlite3_finalize(stmt);  
-
-if (count == 0) {  
-    // Try to read products.txt and insert rows  
-    string productsPath = ensureDataFolder("products.txt");  
-    ifstream pf(productsPath);  
-    if (pf.is_open()) {  
-        LOGI("Migrating products.txt into SQLite (products table empty)");  
-        string line;  
-        sqlite3_exec(g_db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);  
-        const char *insertSQL = "INSERT INTO products (id,title,price,img,stock) VALUES (?,?,?,?,?);";  
-        sqlite3_stmt *ins = nullptr;  
-        sqlite3_prepare_v2(g_db, insertSQL, -1, &ins, nullptr);  
-        while (getline(pf, line)) {  
-            if (line.empty()) continue;  
-            istringstream iss(line);  
-            Product p; string priceStr, stockStr;  
-            getline(iss, p.id, '|');  
-            getline(iss, p.title, '|');  
-            getline(iss, priceStr, '|');  
-            try { p.price = priceStr.empty() ? 0.0 : stod(priceStr); } catch(...) { p.price = 0.0; }  
-            getline(iss, p.img, '|');  
-            getline(iss, stockStr, '|');  
-            try { p.stock = stockStr.empty() ? 0 : stoi(stockStr); } catch(...) { p.stock = 0; }  
-
-            sqlite3_bind_text(ins, 1, p.id.c_str(), -1, SQLITE_TRANSIENT);  
-            sqlite3_bind_text(ins, 2, p.title.c_str(), -1, SQLITE_TRANSIENT);  
-            sqlite3_bind_double(ins, 3, p.price);  
-            sqlite3_bind_text(ins, 4, p.img.c_str(), -1, SQLITE_TRANSIENT);  
-            sqlite3_bind_int(ins, 5, p.stock);  
-            sqlite3_step(ins);  
-            sqlite3_reset(ins);  
-        }  
-        sqlite3_finalize(ins);  
-        sqlite3_exec(g_db, "COMMIT;", nullptr, nullptr, nullptr);  
-        pf.close();  
-    }  
-}  
-
-// Check if orders table is empty  
-count = 0;  
-const char *countOrdersSql = "SELECT COUNT(*) FROM orders;";  
-stmt = nullptr;  
-if (sqlite3_prepare_v2(g_db, countOrdersSql, -1, &stmt, nullptr) == SQLITE_OK) {  
-    if (sqlite3_step(stmt) == SQLITE_ROW) count = sqlite3_column_int(stmt, 0);  
-}  
-sqlite3_finalize(stmt);  
-
-if (count == 0) {  
-    string ordersPath = ensureDataFolder("orders.txt");  
-    ifstream ofile(ordersPath);  
-    if (ofile.is_open()) {  
-        LOGI("Migrating orders.txt into SQLite (orders table empty)");  
-        string line;  
-        sqlite3_exec(g_db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);  
-        const char *insertSQL = "INSERT INTO orders (id,product,name,contact,email,address,productPrice,deliveryCharges,totalAmount,payment,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?);";  
-        sqlite3_stmt *ins = nullptr;  
-        sqlite3_prepare_v2(g_db, insertSQL, -1, &ins, nullptr);  
-        while (getline(ofile, line)) {  
-            if (line.empty()) continue;  
-            istringstream iss(line);  
-            Order o;  
-            getline(iss, o.id, '|');  
-            getline(iss, o.product, '|');  
-            getline(iss, o.name, '|');  
-            getline(iss, o.contact, '|');  
-            getline(iss, o.email, '|');  
-            getline(iss, o.address, '|');  
-            getline(iss, o.productPrice, '|');  
-            getline(iss, o.deliveryCharges, '|');  
-            getline(iss, o.totalAmount, '|');  
-            getline(iss, o.payment, '|');  
-            getline(iss, o.createdAt, '|');  
-
-            sqlite3_bind_text(ins, 1, o.id.c_str(), -1, SQLITE_TRANSIENT);  
-            sqlite3_bind_text(ins, 2, o.product.c_str(), -1, SQLITE_TRANSIENT);  
-            sqlite3_bind_text(ins, 3, o.name.c_str(), -1, SQLITE_TRANSIENT);  
-            sqlite3_bind_text(ins, 4, o.contact.c_str(), -1, SQLITE_TRANSIENT);  
-            sqlite3_bind_text(ins, 5, o.email.c_str(), -1, SQLITE_TRANSIENT);  
-            sqlite3_bind_text(ins, 6, o.address.c_str(), -1, SQLITE_TRANSIENT);  
-            sqlite3_bind_text(ins, 7, o.productPrice.c_str(), -1, SQLITE_TRANSIENT);  
-            sqlite3_bind_text(ins, 8, o.deliveryCharges.c_str(), -1, SQLITE_TRANSIENT);  
-            sqlite3_bind_text(ins, 9, o.totalAmount.c_str(), -1, SQLITE_TRANSIENT);  
-            sqlite3_bind_text(ins, 10, o.payment.c_str(), -1, SQLITE_TRANSIENT);  
-            sqlite3_bind_text(ins, 11, o.createdAt.c_str(), -1, SQLITE_TRANSIENT);  
-            sqlite3_step(ins);  
-            sqlite3_reset(ins);  
-        }  
-        sqlite3_finalize(ins);  
-        sqlite3_exec(g_db, "COMMIT;", nullptr, nullptr, nullptr);  
-        ofile.close();  
-    }  
-}
-
-}
-
-// Load products from SQLite into memory
-void loadProducts() {
-lock_guard<mutex> lock(g_storage_mutex);
-products.clear();
-if (!g_db) return;
-const char *sql = "SELECT id, title, price, img, stock FROM products ORDER BY id;";
-sqlite3_stmt *stmt = nullptr;
-if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-while (sqlite3_step(stmt) == SQLITE_ROW) {
-Product p;
-const unsigned char *c0 = sqlite3_column_text(stmt, 0);
-const unsigned char *c1 = sqlite3_column_text(stmt, 1);
-const unsigned char* c3 = sqlite3_column_text(stmt, 3);
-p.id = c0 ? (const char*)c0 : "";
-p.title = c1 ? (const char*)c1 : "";
-p.price = sqlite3_column_double(stmt, 2);
-p.img = c3 ? (const char*)c3 : "";
-p.stock = sqlite3_column_int(stmt, 4);
-products.push_back(p);
-if (p.id.size() > 1 && p.id[0] == 'p') {
-try {
-int num = stoi(p.id.substr(1));
-if (num > currentProductID) currentProductID = num;
-} catch (...) {}
-}
-}
-}
-sqlite3_finalize(stmt);
-}
-
-// Persist in-memory products to DB (simple: delete all and insert)
-void saveProducts() {
-lock_guard<mutex> lock(g_storage_mutex);
-if (!g_db) return;
-sqlite3_exec(g_db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
-sqlite3_exec(g_db, "DELETE FROM products;", nullptr, nullptr, nullptr);
-const char *sql = "INSERT INTO products (id, title, price, img, stock) VALUES (?, ?, ?, ?, ?);";
-sqlite3_stmt *stmt = nullptr;
-if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-for (auto &p : products) {
-sqlite3_bind_text(stmt, 1, p.id.c_str(), -1, SQLITE_TRANSIENT);
-sqlite3_bind_text(stmt, 2, p.title.c_str(), -1, SQLITE_TRANSIENT);
-sqlite3_bind_double(stmt, 3, p.price);
-sqlite3_bind_text(stmt, 4, p.img.c_str(), -1, SQLITE_TRANSIENT);
-sqlite3_bind_int(stmt, 5, p.stock);
-sqlite3_step(stmt);
-sqlite3_reset(stmt);
-}
-} else {
-LOGE("Failed to prepare insert into products");
-}
-sqlite3_finalize(stmt);
-sqlite3_exec(g_db, "COMMIT;", nullptr, nullptr, nullptr);
-}
-
-// Load orders from SQLite into memory
-void loadOrders() {
-lock_guard<mutex> lock(g_storage_mutex);
-orders.clear();
-if (!g_db) return;
-const char *sql = "SELECT id, product, name, contact, email, address, productPrice, deliveryCharges, totalAmount, payment, createdAt FROM orders ORDER BY id;";
-sqlite3_stmt *stmt = nullptr;
-if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-while (sqlite3_step(stmt) == SQLITE_ROW) {
-Order o;
-const unsigned char *c0 = sqlite3_column_text(stmt, 0);
-const unsigned char *c1 = sqlite3_column_text(stmt, 1);
-const unsigned char* c2 = sqlite3_column_text(stmt, 2);
-const unsigned char* c3 = sqlite3_column_text(stmt, 3);
-const unsigned char* c4 = sqlite3_column_text(stmt, 4);
-const unsigned char* c5 = sqlite3_column_text(stmt, 5);
-const unsigned char* c6 = sqlite3_column_text(stmt, 6);
-const unsigned char* c7 = sqlite3_column_text(stmt, 7);
-const unsigned char* c8 = sqlite3_column_text(stmt, 8);
-const unsigned char* c9 = sqlite3_column_text(stmt, 9);
-const unsigned char* c10 = sqlite3_column_text(stmt, 10);
-o.id = c0 ? (const char*)c0 : "";
-o.product = c1 ? (const char*)c1 : "";
-o.name = c2 ? (const char*)c2 : "";
-o.contact = c3 ? (const char*)c3 : "";
-o.email = c4 ? (const char*)c4 : "";
-o.address = c5 ? (const char*)c5 : "";
-o.productPrice = c6 ? (const char*)c6 : "";
-o.deliveryCharges = c7 ? (const char*)c7 : "";
-o.totalAmount = c8 ? (const char*)c8 : "";
-o.payment = c9 ? (const char*)c9 : "";
-o.createdAt = c10 ? (const char*)c10 : "";
-orders.push_back(o);
-if (o.id.size() > 1 && o.id[0] == 'O') {
-try {
-int num = stoi(o.id.substr(1));
-if (num > currentOrderID) currentOrderID = num;
-} catch (...) {}
-}
-}
-}
-sqlite3_finalize(stmt);
-}
-void saveOrder(const Order &o) {
-    lock_guard<mutex> lock(g_storage_mutex);
-    if (!g_db) return;
-
-    const char *sql =
-        "INSERT INTO orders "
-        "(id, product, name, contact, email, address, productPrice, deliveryCharges, totalAmount, payment, createdAt) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
-
-    sqlite3_stmt *stmt = nullptr;
-
-    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-        sqlite3_bind_text(stmt, 1, o.id.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 2, o.product.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 3, o.name.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 4, o.contact.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 5, o.email.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 6, o.address.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 7, o.productPrice.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 8, o.deliveryCharges.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 9, o.totalAmount.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 10, o.payment.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 11, o.createdAt.c_str(), -1, SQLITE_TRANSIENT);
-
-        sqlite3_step(stmt);
-    }
-
-    sqlite3_finalize(stmt);
-}
-// Persist in-memory orders to DB (simple: delete all and insert)
-void saveOrders() {
-lock_guard<mutex> lock(g_storage_mutex);
-if (!g_db) return;
-sqlite3_exec(g_db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
-sqlite3_exec(g_db, "DELETE FROM orders;", nullptr, nullptr, nullptr);
-const char *sql = "INSERT INTO orders (id, product, name, contact, email, address, productPrice, deliveryCharges, totalAmount, payment, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
-sqlite3_stmt *stmt = nullptr;
-if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-for (auto &o : orders) {
-sqlite3_bind_text(stmt, 1, o.id.c_str(), -1, SQLITE_TRANSIENT);
-sqlite3_bind_text(stmt, 2, o.product.c_str(), -1, SQLITE_TRANSIENT);
-sqlite3_bind_text(stmt, 3, o.name.c_str(), -1, SQLITE_TRANSIENT);
-sqlite3_bind_text(stmt, 4, o.contact.c_str(), -1, SQLITE_TRANSIENT);
-sqlite3_bind_text(stmt, 5, o.email.c_str(), -1, SQLITE_TRANSIENT);
-sqlite3_bind_text(stmt, 6, o.address.c_str(), -1, SQLITE_TRANSIENT);
-sqlite3_bind_text(stmt, 7, o.productPrice.c_str(), -1, SQLITE_TRANSIENT);
-sqlite3_bind_text(stmt, 8, o.deliveryCharges.c_str(), -1, SQLITE_TRANSIENT);
-sqlite3_bind_text(stmt, 9, o.totalAmount.c_str(), -1, SQLITE_TRANSIENT);
-sqlite3_bind_text(stmt, 10, o.payment.c_str(), -1, SQLITE_TRANSIENT);
-sqlite3_bind_text(stmt, 11, o.createdAt.c_str(), -1, SQLITE_TRANSIENT);
-sqlite3_step(stmt);
-sqlite3_reset(stmt);
-}
-} else {
-LOGE("Failed to prepare insert into orders");
-}
-sqlite3_finalize(stmt);
-sqlite3_exec(g_db, "COMMIT;", nullptr, nullptr, nullptr);
-}
-
-// ------------------- Utilities (unchanged) -------------------
-string generateProductID() { return "p" + to_string(++currentProductID); }
-// ------------------- Thread-safe Order ID generation -------------------
-string generateOrderID() {
-    lock_guard<mutex> lock(g_storage_mutex); // protect currentOrderID
-    return "O" + to_string(++currentOrderID);
-}
-
-// ------------------- Simple JSON parser for flat keys -------------------
-map<string,string> parseJson(const string &body) {
-map<string,string> res;
-string key, val;
-enum State { NONE, IN_KEY, AFTER_KEY, IN_VAL } st = NONE;
-bool esc = false;
-for (size_t i=0;i<body.size();++i) {
-char c = body[i];
-if (st == NONE) {
-if (c == '"') { st = IN_KEY; key.clear(); esc=false; }
-} else if (st == IN_KEY) {
-if (c == '"' && !esc) { st = AFTER_KEY; }
-else {
-if (c == '\\' && !esc) esc = true; else { key.push_back(c); esc=false; }
-}
-} else if (st == AFTER_KEY) {
-if (c == ':') {
-// move to value; find starting quote
-size_t j = i+1;
-while (j < body.size() && isspace((unsigned char)body[j])) j++;
-if (j < body.size() && body[j] == '"') { st = IN_VAL; i = j; val.clear(); esc=false; }
-else {
-// non-string value (number, boolean) - capture until comma or }
-size_t k = j;
-while (k < body.size() && body[k] != ',' && body[k] != '}' && body[k] != '\n' && body[k] != '\r') k++;
-string raw = body.substr(j, k-j);
-// trim
-size_t a = raw.find_first_not_of(" \t\n\r");
-size_t b = raw.find_last_not_of(" \t\n\r");
-if (a==string::npos) res[key]=""; else res[key]=raw.substr(a, b-a+1);
-i = k-1;
-st = NONE;
-}
-}
-} else if (st == IN_VAL) {
-if (c == '"' && !esc) {
-// value ended
-res[key] = val;
-st = NONE;
-} else {
-if (c == '\\' && !esc) esc = true; else { val.push_back(c); esc=false; }
-}
-}
-}
-return res;
-}
-
-// parse application/x-www-form-urlencoded
-string urlDecode(const string &src) {
-ostringstream out;
-for (size_t i=0;i<src.size();++i) {
-if (src[i] == '+') out << ' ';
-else if (src[i] == '%' && i+2 < src.size()) {
-string hex = src.substr(i+1,2);
-char ch = (char) strtol(hex.c_str(), nullptr, 16);
-out << ch;
-i += 2;
-} else out << src[i];
-}
-return out.str();
-}
-map<string,string> parseFormUrlEncoded(const string &body) {
-map<string,string> res;
-size_t pos = 0;
-while (pos < body.size()) {
-size_t eq = body.find('=', pos);
-if (eq == string::npos) break;
-string k = body.substr(pos, eq-pos);
-size_t amp = body.find('&', eq+1);
-string v;
-if (amp == string::npos) { v = body.substr(eq+1); pos = body.size(); }
-else { v = body.substr(eq+1, amp-(eq+1)); pos = amp+1; }
-res[urlDecode(k)] = urlDecode(v);
-}
-return res;
-}
-
-// ------------------- Utility / HTTP -------------------
-void sendResponse(int clientSocket, const string &status, const string &contentType, const string &body) {
-stringstream response;
-response << "HTTP/1.1 " << status << "\r\n";
-response << "Content-Type: " << contentType << "\r\n";
-response << "Access-Control-Allow-Origin: *\r\n";
-response << "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n";
-response << "Access-Control-Allow-Headers: Content-Type\r\n";
-response << "Content-Length: " << body.size() << "\r\n";
-response << "Connection: close\r\n\r\n";
-response << body;
-string resStr = response.str();
-// note: ignoring send() return here (best-effort)
-send(clientSocket, resStr.c_str(), resStr.size(), 0);
-}
-
-// --- NEW: send binary response (headers + raw bytes) ---
-void sendBinaryResponse(int clientSocket, const string &status, const string &contentType, const string &bodyBytes) {
-stringstream response;
-response << "HTTP/1.1 " << status << "\r\n";
-response << "Content-Type: " << contentType << "\r\n";
-response << "Access-Control-Allow-Origin: *\r\n";
-response << "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n";
-response << "Access-Control-Allow-Headers: Content-Type\r\n";
-response << "Content-Length: " << bodyBytes.size() << "\r\n";
-response << "Connection: close\r\n\r\n";
-string headerStr = response.str();
-// send headers
-send(clientSocket, headerStr.c_str(), headerStr.size(), 0);
-// send body bytes (may contain nulls)
-if (!bodyBytes.empty()) {
-ssize_t sent = 0;
-const char *data = bodyBytes.data();
-size_t remaining = bodyBytes.size();
-while (remaining > 0) {
-ssize_t n = send(clientSocket, data + sent, remaining, 0);
-if (n <= 0) break;
-sent += n;
-remaining -= n;
-}
-}
-}
-
-string getQueryParam(const string &path, const string &key) {
-size_t q = path.find('?');
-if (q == string::npos) return "";
-string qs = path.substr(q+1);
-auto params = parseFormUrlEncoded(qs);
-if (params.find(key) != params.end()) return params[key];
-return "";
-}
-
-string htmlEscape(const string &s) {
-string out;
-for (char c : s) {
-    out.push_back(c);
-}
-return out;
-}
-
-// Simulated barcode generator (returns HTML of vertical bars)
-string generateBarcodeHtml(const string &seed) {
-// create deterministic pseudo-random bars from seed
-unsigned long hash = 1469598103934665603ULL;
-for (char c : seed) hash = (hash ^ (unsigned long)c) * 1099511628211ULL;
-// create pattern
-stringstream ss;
-ss << "<div style=\"display:flex;align-items:flex-end;height:80px;gap:2px;padding:8px;background:#fff;border:1px solid #ddd;\">\n";
-// produce 40 bars
-for (int i=0;i<40;i++) {
-// deterministic pseudo-random height based on hash and i
-hash = hash * 6364136223846793005ULL + 1442695040888963407ULL + i;
-int h = (int)(20 + (hash % 60)); // 20..79
-int w = (int)(2 + (hash % 4));   // 2..5 px
-ss << "<div style=\"width:" << w
-   << "px;height:" << h
-   << "px;background:#000;display:inline-block;\"></div>\n";
-}
-ss << "</div>\n";
-return ss.str();
-}
-
-// ------------------- Request handling (keeps original logic) -------------------
-void handleClient(int clientSocket) {
-const int BUF_SIZE = 8192;
-string request;
-char buffer[BUF_SIZE];
-ssize_t n;
-
-// Read headers first (robust)  
-bool headersDone = false;  
-while (!headersDone) {  
-    n = recv(clientSocket, buffer, BUF_SIZE, 0);  
-    if (n <= 0) { close(clientSocket); return; }  
-    request.append(buffer, buffer + n);  
-    if (request.find("\r\n\r\n") != string::npos) { headersDone = true; break; }  
-}  
-
-size_t headerPos = request.find("\r\n\r\n");  
-string headers = (headerPos != string::npos) ? request.substr(0, headerPos) : "";  
-string body = (headerPos != string::npos) ? request.substr(headerPos + 4) : "";  
-
-// find Content-Length  
-size_t contentLength = 0;  
-string headersLower = headers;  
-transform(headersLower.begin(), headersLower.end(), headersLower.begin(), ::tolower);  
-size_t clPos = headersLower.find("content-length:");  
-if (clPos != string::npos) {  
-    size_t start = clPos + strlen("content-length:");  
-    while (start < headersLower.size() && isspace((unsigned char)headersLower[start])) start++;  
-    size_t end = headersLower.find("\r\n", start);  
-    string num = headersLower.substr(start, (end==string::npos?headersLower.size():end)-start);  
-    try { contentLength = stoul(num); } catch(...) { contentLength = 0; }  
-}  
-
-// read remaining body if any  
-while (body.size() < contentLength) {  
-    n = recv(clientSocket, buffer, BUF_SIZE, 0);  
-    if (n <= 0) break;  
-    body.append(buffer, buffer + n);  
-}  
-
-// parse request line  
-istringstream reqStream(request);  
-string method, path, version;  
-reqStream >> method >> path >> version;  
-if (path.empty()) path = "/";  
-
-// Log request (client IP not available here; kept as previously)  
-LOGI(string("Request: ") + method + " " + path);  
-LOGD(string("Raw body: [") + body + "]");  
-
-// quick CORS preflight  
-if (method == "OPTIONS") {  
-    sendResponse(clientSocket, "200 OK", "text/plain", "OK");  
-    close(clientSocket);  
-    return;  
-}  
-
-// ------------------- API Routes -------------------  
-
-// POST /api/login  
-if (path.find("/api/login") == 0 && method == "POST") {  
-    auto kv = parseJson(body);  
-    string username = trim(kv.count("username") ? kv["username"] : "");  
-    string password = trim(kv.count("password") ? kv["password"] : "");  
-    // fallback to form  
-    if (username.empty() && password.empty()) {  
-        auto form = parseFormUrlEncoded(body);  
-        if (form.count("username")) username = trim(form["username"]);  
-        if (form.count("password")) password = trim(form["password"]);  
-    }  
-    if (username == "admin" && password == "1234") {  
-        sendResponse(clientSocket, "200 OK", "text/plain", "success");  
-    } else {  
-        sendResponse(clientSocket, "401 Unauthorized", "text/plain", "Invalid credentials");  
-    }  
-    close(clientSocket);  
-    return;  
-}  
-
-// GET /api/products  
-if (path.find("/api/products") == 0 && method == "GET") {  
-    stringstream ss;  
-    ss << "[";  
-    // read-lock by copying products (we hold mutex while copying)  
-    {  
-        lock_guard<mutex> lock(g_storage_mutex);  
-        for (size_t i=0;i<products.size();++i) {  
-            auto &p = products[i];  
-            ss << "{"  
-               << "\"id\":\"" << htmlEscape(p.id) << "\","  
-               << "\"title\":\"" << htmlEscape(p.title) << "\","  
-               << "\"price\":" << fixed << setprecision(2) << p.price << ","  
-               << "\"img\":\"" << htmlEscape(p.img) << "\","  
-               << "\"stock\":" << p.stock  
-               << "}";  
-            if (i+1<products.size()) ss << ",";  
-        }  
-    }  
-    ss << "]";  
-    sendResponse(clientSocket, "200 OK", "application/json", ss.str());  
-    close(clientSocket);  
-    return;  
-}  
-
-// POST /api/addProduct  
+namespace fs = std::filesystem;
+namespace beast = boost::beast;           
+namespace http = beast::http;             
+namespace net = boost::asio;              
+using tcp = boost::asio::ip::tcp;         
 
 using json = nlohmann::json;
-if (path.find("/api/addProduct") == 0 && method == "POST") {
-    LOGD("Add product request body: " + body);
 
-    // Parse JSON safely using nlohmann::json
-    json j = json::parse(body, nullptr, false);
-    if (j.is_discarded() || !j.contains("name") || !j.contains("price")) {
-        sendResponse(clientSocket, "400 Bad Request", "application/json",
-                     "{\"success\":false,\"error\":\"Invalid input\"}");
-        close(clientSocket);
-        return;
-    }
+// Globals
+std::string DATA_DIR = "/var/data";
+std::string PUBLIC_DIR = "/app/public";
 
-    string name = j["name"].get<string>();
-    double price = j["price"].get<double>();
+// Environment variables for PostgreSQL
+std::string DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS;
 
-    Product p;
-    {
-        lock_guard<mutex> lock(g_storage_mutex);
+// SQLite DB path for products
+std::string SQLITE_DB_PATH;
 
-        // Increment ID safely based on last product
-        currentProductID = products.empty() ? 0 : stoi(products.back().id.substr(1));
-        p.id = "p" + to_string(++currentProductID);
-        p.title = name;  // <-- use 'title', not 'name', consistent with Product struct
-        p.price = price;
-        p.img = "";
-        p.stock = 0;
+// Mutex for thread safety on SQLite
+std::mutex sqlite_mutex;
 
-        products.push_back(p);
-        saveProducts(); // returns void in your current code
-    }
-
-    string resp = "{\"success\":true,\"id\":\"" + p.id + "\"}";
-    sendResponse(clientSocket, "200 OK", "application/json", resp);
-    LOGD("Product added successfully: " + name);
-    close(clientSocket);
-    return;
+// --- Utility: Read file contents (for static files) ---
+std::optional<std::string> readFile(const fs::path& path) {
+    if (!fs::exists(path) || !fs::is_regular_file(path))
+        return std::nullopt;
+    std::ifstream ifs(path, std::ios::binary);
+    if (!ifs) return std::nullopt;
+    std::stringstream buffer;
+    buffer << ifs.rdbuf();
+    return buffer.str();
 }
 
+// --- Utility: Get MIME type based on extension ---
+std::string mimeType(const std::string& path) {
+    auto ext = fs::path(path).extension().string();
+    if (ext == ".html") return "text/html";
+    if (ext == ".css") return "text/css";
+    if (ext == ".js") return "application/javascript";
+    if (ext == ".json") return "application/json";
+    if (ext == ".png") return "image/png";
+    if (ext == ".jpg" || ext == ".jpeg") return "image/jpeg";
+    if (ext == ".svg") return "image/svg+xml";
+    if (ext == ".txt") return "text/plain";
+    if (ext == ".ico") return "image/x-icon";
+    return "application/octet-stream";
+}
 
-// POST /api/deleteProduct  
-if (path.find("/api/deleteProduct") == 0 && method == "POST") {  
-    auto kv = parseJson(body);  
-    if (kv.empty()) kv = parseFormUrlEncoded(body);  
-    string id = trim(kv.count("id") ? kv["id"] : "");  
-    if (id.empty()) {  
-        sendResponse(clientSocket, "400 Bad Request", "text/plain", "id required");  
-        close(clientSocket);  
-        return;  
-    }  
-    bool deleted = false;  
-    {  
-        lock_guard<mutex> lock(g_storage_mutex);  
-        size_t before = products.size();  
-        products.erase(remove_if(products.begin(), products.end(), [&](const Product &p){  
-            return trim(p.id) == id;  
-        }), products.end());  
-        if (products.size() < before) {  
-            saveProducts();  
-            deleted = true;  
-        }  
-    }  
-    if (deleted) sendResponse(clientSocket, "200 OK", "text/plain", "Product deleted successfully");  
-    else sendResponse(clientSocket, "404 Not Found", "text/plain", "Product not found");  
-    close(clientSocket);  
-    return;  
-}  
-// GET /api/orders
-if (path.find("/api/orders") == 0 && method == "GET") {
-    stringstream ss;
-    ss << "[";
+// --- Shipping charge calculation ---
+int calculateShipping(double total) {
+    return (total >= 5000) ? 0 : 250;
+}
 
-    {
-        lock_guard<mutex> lock(g_storage_mutex);
-        for (size_t i = 0; i < orders.size(); ++i) {
-            auto &o = orders[i];
-            ss << "{"
-               << "\"id\":\"" << htmlEscape(o.id) << "\","
-               << "\"product\":\"" << htmlEscape(o.product) << "\","
-               << "\"name\":\"" << htmlEscape(o.name) << "\","
-               << "\"contact\":\"" << htmlEscape(o.contact) << "\","
-               << "\"email\":\"" << htmlEscape(o.email) << "\","
-               << "\"address\":\"" << htmlEscape(o.address) << "\","
-               << "\"productPrice\":\"" << htmlEscape(o.productPrice) << "\","
-               << "\"deliveryCharges\":\"" << htmlEscape(o.deliveryCharges) << "\","
-               << "\"totalAmount\":\"" << htmlEscape(o.totalAmount) << "\","
-               << "\"payment\":\"" << htmlEscape(o.payment) << "\","
-               << "\"createdAt\":\"" << htmlEscape(o.createdAt) << "\""
-               << "}";
-            if (i + 1 < orders.size()) ss << ",";
+// --- SQLite wrapper for products ---
+class ProductDB {
+    sqlite3* db = nullptr;
+
+public:
+    ProductDB(const std::string& path) {
+        if (sqlite3_open(path.c_str(), &db)) {
+            std::cerr << "Can't open SQLite DB: " << sqlite3_errmsg(db) << "\n";
+            sqlite3_close(db);
+            db = nullptr;
+        } else {
+            // Create products table if not exists
+            const char* create_sql = R"(
+                CREATE TABLE IF NOT EXISTS products (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    price REAL NOT NULL,
+                    stock INTEGER NOT NULL,
+                    img TEXT NOT NULL
+                );
+            )";
+            char* errmsg = nullptr;
+            if (sqlite3_exec(db, create_sql, nullptr, nullptr, &errmsg) != SQLITE_OK) {
+                std::cerr << "Failed to create products table: " << errmsg << "\n";
+                sqlite3_free(errmsg);
+            }
         }
     }
 
-    ss << "]";
-    sendResponse(clientSocket, "200 OK", "application/json", ss.str());
-    close(clientSocket);
-    return;
-}
-// POST /api/orders  
-if (path.find("/api/orders") == 0 && method == "POST") {  
-    // Accept JSON body that contains products (array of {product,qty}), plus name/contact/email/address  
-    // We will compute subtotal using server-side product prices to avoid client manipulation  
-    string bodyStr = body;  
-    auto kv = parseJson(bodyStr);  
-    // fallback to form  
-    if (kv.empty()) kv = parseFormUrlEncoded(bodyStr);  
+    ~ProductDB() {
+        if (db) sqlite3_close(db);
+    }
 
-    // parse products array by scanning body string (simple approach)  
-    vector<pair<string,int>> orderProducts;  
-    size_t pos = 0;  
-    while ((pos = bodyStr.find("\"product\":", pos)) != string::npos) {  
-        pos += 10;  
-        size_t start = bodyStr.find('"', pos);  
-        if (start == string::npos) break;  
-        start++;  
-        size_t end = bodyStr.find('"', start);  
-        if (end == string::npos) break;  
-        string prodId = bodyStr.substr(start, end-start);  
+    // Get all products
+    std::vector<json> getAllProducts() {
+        std::lock_guard<std::mutex> lock(sqlite_mutex);
+        std::vector<json> products;
+        const char* sql = "SELECT id, title, price, stock, img FROM products;";
+        sqlite3_stmt* stmt = nullptr;
+        if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+            while (sqlite3_step(stmt) == SQLITE_ROW) {
+                json p;
+                p["id"] = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+                p["title"] = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+                p["price"] = sqlite3_column_double(stmt, 2);
+                p["stock"] = sqlite3_column_int(stmt, 3);
+                p["img"] = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
+                products.push_back(p);
+            }
+        }
+        sqlite3_finalize(stmt);
+        return products;
+    }
 
-        size_t qtyPos = bodyStr.find("\"qty\":", end);  
-        if (qtyPos == string::npos) break;  
-        qtyPos += 6;  
-        size_t qtyEnd = bodyStr.find_first_of(",}", qtyPos);  
-        if (qtyEnd == string::npos) break;  
-        int qty = 1;  
-        try { qty = stoi(bodyStr.substr(qtyPos, qtyEnd-qtyPos)); } catch(...) { qty = 1; }  
+    // Insert or update product
+    bool upsertProduct(const json& p) {
+        std::lock_guard<std::mutex> lock(sqlite_mutex);
+        const char* sql = R"(
+            INSERT INTO products(id, title, price, stock, img)
+            VALUES(?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              title=excluded.title,
+              price=excluded.price,
+              stock=excluded.stock,
+              img=excluded.img;
+        )";
+        sqlite3_stmt* stmt = nullptr;
+        if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
 
-        orderProducts.push_back({prodId, qty});  
-        pos = qtyEnd;  
-    }  
+        sqlite3_bind_text(stmt, 1, p["id"].get<std::string>().c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 2, p["title"].get<std::string>().c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_double(stmt, 3, p["price"].get<double>());
+        sqlite3_bind_int(stmt, 4, p["stock"].get<int>());
+        sqlite3_bind_text(stmt, 5, p["img"].get<std::string>().c_str(), -1, SQLITE_TRANSIENT);
 
-    Order o;  
-    o.id = generateOrderID();  
-    o.name = kv.count("name") ? kv["name"] : "";  
-    o.contact = kv.count("contact") ? kv["contact"] : "";  
-    o.email = kv.count("email") ? kv["email"] : "";  
-    o.address = kv.count("address") ? kv["address"] : "";  
+        bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+        sqlite3_finalize(stmt);
+        return success;
+    }
 
-    double subtotal = 0.0;  
-    string prodSummary;  
-    {  
-        lock_guard<mutex> lock(g_storage_mutex);  
-        for (auto &pp : orderProducts) {  
-            string pid = trim(pp.first);  
-            int qty = pp.second;  
-            double price = 0.0;  
-            string title = pid;  
-            for (auto &prod : products) {  
-                if (trim(prod.id) == pid) {  
-                    price = prod.price;  
-                    title = prod.title;  
-                    break;  
-                }  
-            }  
-            subtotal += price * qty;  
-            char priceBuf[64]; snprintf(priceBuf, sizeof(priceBuf), "%.2f", price);  
-            prodSummary += title + " (RS." + string(priceBuf) + ") x" + to_string(qty) + ", ";  
-        }  
-    }  
-    if (!prodSummary.empty()) { prodSummary.pop_back(); prodSummary.pop_back(); }  
+    // Delete product by id
+    bool deleteProduct(const std::string& id) {
+        std::lock_guard<std::mutex> lock(sqlite_mutex);
+        const char* sql = "DELETE FROM products WHERE id = ?;";
+        sqlite3_stmt* stmt = nullptr;
+        if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+        sqlite3_bind_text(stmt, 1, id.c_str(), -1, SQLITE_TRANSIENT);
+        bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+        sqlite3_finalize(stmt);
+        return success;
+    }
 
-    double deliveryCharges = 180.0;  
-    if (subtotal >= 3000 && subtotal < 5000) deliveryCharges = 550.0;  
-    else if (subtotal >= 5000) deliveryCharges = 0.0;  
+    // Get product by id
+    std::optional<json> getProduct(const std::string& id) {
+        std::lock_guard<std::mutex> lock(sqlite_mutex);
+        const char* sql = "SELECT id, title, price, stock, img FROM products WHERE id=? LIMIT 1;";
+        sqlite3_stmt* stmt = nullptr;
+        if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return std::nullopt;
+        sqlite3_bind_text(stmt, 1, id.c_str(), -1, SQLITE_TRANSIENT);
 
-    double totalAmount = subtotal + deliveryCharges;  
-    char subS[32], delS[32], totS[32];  
-    snprintf(subS, sizeof(subS), "%.2f", subtotal);  
-    snprintf(delS, sizeof(delS), "%.2f", deliveryCharges);  
-    snprintf(totS, sizeof(totS), "%.2f", totalAmount);  
+        std::optional<json> product;
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            json p;
+            p["id"] = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+            p["title"] = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+            p["price"] = sqlite3_column_double(stmt, 2);
+            p["stock"] = sqlite3_column_int(stmt, 3);
+            p["img"] = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
+            product = p;
+        }
+        sqlite3_finalize(stmt);
+        return product;
+    }
+};
 
-    o.product = prodSummary.empty() ? "Unknown items" : prodSummary;  
-    o.productPrice = subS;  
-    o.deliveryCharges = delS;  
-    o.totalAmount = totS;  
-    o.payment = "Cash on Delivery";  
-    o.createdAt = nowISO8601();  
+// --- PostgreSQL wrapper for orders/customers ---
+class OrderDB {
+    pqxx::connection* conn = nullptr;
 
-    {  
-        lock_guard<mutex> lock(g_storage_mutex);  
-        orders.push_back(o);  
-        // Persist orders immediately and robustly  
-        saveOrders();  
-    }  
+public:
+    OrderDB(const std::string& connStr) {
+        try {
+            conn = new pqxx::connection(connStr);
+            if (!conn->is_open()) {
+                std::cerr << "Cannot open PostgreSQL connection\n";
+                delete conn;
+                conn = nullptr;
+            } else {
+                // Initialize tables if not exist
+                pqxx::work txn(*conn);
+                txn.exec(R"(
+                    CREATE TABLE IF NOT EXISTS customers (
+                        id SERIAL PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        contact TEXT NOT NULL,
+                        email TEXT,
+                        address TEXT NOT NULL
+                    );
+                )");
+                txn.exec(R"(
+                    CREATE TABLE IF NOT EXISTS orders (
+                        id SERIAL PRIMARY KEY,
+                        customer_id INTEGER REFERENCES customers(id),
+                        product_id TEXT NOT NULL,
+                        total_amount NUMERIC NOT NULL,
+                        shipping_charge NUMERIC NOT NULL,
+                        payment_method TEXT NOT NULL,
+                        order_date TIMESTAMP NOT NULL DEFAULT NOW()
+                    );
+                )");
+                txn.commit();
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "PostgreSQL connection error: " << e.what() << "\n";
+        }
+    }
+    ~OrderDB() {
+        if (conn) conn->close();
+        delete conn;
+    }
 
-    // Return order id so frontend can link to shipping label  
-    string response = "{\"status\":\"success\",\"message\":\"Order placed successfully\",\"orderId\":\"" + o.id + "\"}";  
-    sendResponse(clientSocket, "200 OK", "application/json", response);  
-    close(clientSocket);  
-    return;  
-}  
+    bool isConnected() const {
+        return conn && conn->is_open();
+    }
 
+    // Insert customer and return customer_id
+    int addCustomer(const json& cust) {
+        if (!isConnected()) return -1;
+        pqxx::work txn(*conn);
+        pqxx::result r = txn.exec_params(
+            "INSERT INTO customers (name, contact, email, address) VALUES ($1, $2, $3, $4) RETURNING id;",
+            cust["name"].get<std::string>(), cust["contact"].get<std::string>(),
+            cust.value("email", ""), cust["address"].get<std::string>()
+        );
+        txn.commit();
+        return r[0][0].as<int>();
+    }
 
+    // Add order
+    bool addOrder(const json& order) {
+        if (!isConnected()) return false;
+        try {
+            pqxx::work txn(*conn);
+            int cust_id = addCustomer(order["customer"]);
+            if (cust_id < 0) return false;
 
+            txn.exec_params(
+                "INSERT INTO orders (customer_id, product_id, total_amount, shipping_charge, payment_method) VALUES ($1, $2, $3, $4, $5);",
+                cust_id,
+                order["product_id"].get<std::string>(),
+                order["total_amount"].get<double>(),
+                order["shipping_charge"].get<double>(),
+                order["payment_method"].get<std::string>()
+            );
+            txn.commit();
+            return true;
+        } catch (const std::exception& e) {
+            std::cerr << "Add order error: " << e.what() << "\n";
+            return false;
+        }
+    }
 
-// GET /api/shippingLabel?id=ORDER_ID  
-if (path.find("/api/shippingLabel") == 0 && method == "GET") {  
-    string id = getQueryParam(path, "id");  
-    if (id.empty()) {  
-        sendResponse(clientSocket, "400 Bad Request", "text/plain", "id query param required");  
-        close(clientSocket);  
-        return;  
-    }  
-    // find order  
-    Order *found = nullptr;  
-    {  
-        lock_guard<mutex> lock(g_storage_mutex);  
-        for (auto &o : orders) if (trim(o.id) == id) { found = &o; break; }  
-    }  
-    if (!found) {  
-        sendResponse(clientSocket, "404 Not Found", "text/plain", "Order not found");  
-        close(clientSocket);  
-        return;  
-    }  
-    // Build a simple printable HTML page with order details and simulated barcode  
-    string html;  
-    html += "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>\n";  
-    html += "<title>Shipping Label - " + htmlEscape(found->id) + "</title>\n";  
-    html += "<style>body{font-family:Arial,Helvetica,sans-serif;padding:18px;background:#f6f7fb} .label{max-width:720px;margin:0 auto;background:#fff;padding:18px;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.08)} h1{margin:0 0 8px;font-size:18px} .meta{margin:10px 0} .meta div{margin:4px 0} .barcode-wrap{margin:12px 0;padding:8px;background:#fff;border-radius:6px;display:flex;justify-content:center}\n";  
-    html += "@media print{body{background:#fff} .label{box-shadow:none}}</style></head><body>\n";  
-    html += "<div class='label'>\n";  
-    html += "<h1>ONLINETRADERZ — Shipping Label</h1>\n";  
-    html += "<div class='meta'><div><strong>Order ID:</strong> " + htmlEscape(found->id) + "</div>\n";  
-    html += "<div><strong>Customer:</strong> " + htmlEscape(found->name) + "</div>\n";  
-    html += "<div><strong>Contact:</strong> " + htmlEscape(found->contact) + "</div>\n";  
-    html += "<div><strong>Address:</strong> " + htmlEscape(found->address) + "</div>\n";  
-    html += "<div><strong>Items:</strong> " + htmlEscape(found->product) + "</div>\n";  
-    html += "<div><strong>Total:</strong> RS." + htmlEscape(found->totalAmount) + "</div>\n";  
-    html += "</div>\n";  
-    html += "<div class='barcode-wrap'>\n";  
-    html += generateBarcodeHtml(found->id + "|" + found->createdAt + "|" + found->contact);  
-    html += "</div>\n";  
-    html += "<div style='text-align:center;margin-top:14px;color:#666;font-size:12px'>Printed: " + nowISO8601() + "</div>\n";  
-    html += "</div>\n</body></html>";  
-    sendResponse(clientSocket, "200 OK", "text/html", html);  
-    close(clientSocket);  
-    return;  
-}  
+    // Get all orders joined with customer info
+    std::vector<json> getAllOrders() {
+        std::vector<json> orders;
+        if (!isConnected()) return orders;
+        try {
+            pqxx::work txn(*conn);
+            pqxx::result r = txn.exec(R"(
+                SELECT o.id, c.name, c.contact, c.email, c.address, o.product_id,
+                       o.total_amount, o.shipping_charge, o.payment_method, o.order_date
+                FROM orders o
+                JOIN customers c ON o.customer_id = c.id
+                ORDER BY o.order_date DESC;
+            )");
+            for (auto row : r) {
+                json o;
+                o["id"] = row["id"].as<int>();
+                o["name"] = row["name"].as<std::string>();
+                o["contact"] = row["contact"].as<std::string>();
+                o["email"] = row["email"].as<std::string>();
+                o["address"] = row["address"].as<std::string>();
+                o["product_id"] = row["product_id"].as<std::string>();
+                o["total_amount"] = row["total_amount"].as<double>();
+                o["shipping_charge"] = row["shipping_charge"].as<double>();
+                o["payment_method"] = row["payment_method"].as<std::string>();
+                o["order_date"] = row["order_date"].as<std::string>();
+                orders.push_back(o);
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Get orders error: " << e.what() << "\n";
+        }
+        return orders;
+    }
+};
 
-// Serve static files from public/ (fallback)  
-string assetPath = path;  
-if (assetPath == "/") assetPath = "/index.html";  
+// --- Server class for HTTP handling ---
+class Server {
+    net::io_context ioc_;
+    tcp::acceptor acceptor_;
+    ProductDB productDB_;
+    OrderDB orderDB_;
 
-// Determine content type first  
-string contentType = "text/html";  
-string assetLower = assetPath;  
-transform(assetLower.begin(), assetLower.end(), assetLower.begin(), ::tolower);  
-if (assetLower.find(".css") != string::npos) contentType = "text/css";  
-else if (assetLower.find(".js") != string::npos) contentType = "application/javascript";  
-else if (assetLower.find(".png") != string::npos) contentType = "image/png";  
-else if (assetLower.find(".jpg") != string::npos || assetLower.find(".jpeg") != string::npos) contentType = "image/jpeg";  
-else if (assetLower.find(".svg") != string::npos) contentType = "image/svg+xml";  
-else if (assetLower.find(".gif") != string::npos) contentType = "image/gif";  
-else if (assetLower.find(".webp") != string::npos) contentType = "image/webp";  
-else if (assetLower.find(".ico") != string::npos) contentType = "image/x-icon";  
-else if (assetLower.find(".bmp") != string::npos) contentType = "image/bmp";  
-else if (assetLower.find(".avif") != string::npos) contentType = "image/avif";  
+public:
+    Server(const std::string& host, unsigned short port, const std::string& sqlitePath, const std::string& pgConnStr)
+    : acceptor_(ioc_, tcp::endpoint(net::ip::make_address(host), port)),
+      productDB_(sqlitePath), orderDB_(pgConnStr)
+    {
+        std::cout << "Server running at " << host << ":" << port << "\n";
+        doAccept();
+    }
 
-// For images and other binary types, read binary and send with binary sender  
-bool isBinary = false;  
-if (assetLower.find(".png") != string::npos ||  
-    assetLower.find(".jpg") != string::npos ||  
-    assetLower.find(".jpeg") != string::npos ||  
-    assetLower.find(".gif") != string::npos ||  
-    assetLower.find(".webp") != string::npos ||  
-    assetLower.find(".ico") != string::npos ||  
-    assetLower.find(".bmp") != string::npos ||  
-    assetLower.find(".avif") != string::npos) {  
-    isBinary = true;  
-}  
+    void run() {
+        ioc_.run();
+    }
 
-// Build full path and log it (helps debugging missing files)  
-string fullPath = "public" + assetPath;  
-LOGI(string("Static request -> ") + fullPath);  
+private:
+    void doAccept() {
+        acceptor_.async_accept(
+            [this](beast::error_code ec, tcp::socket socket){
+                if (!ec) {
+                    std::make_shared<Session>(std::move(socket), productDB_, orderDB_)->start();
+                }
+                doAccept();
+            });
+    }
 
-if (isBinary) {  
-    string fileContentBin = readFileBinary(fullPath);  
-    if (!fileContentBin.empty()) {  
-        sendBinaryResponse(clientSocket, "200 OK", contentType, fileContentBin);  
-    } else {  
-        LOGW(string("Static file not found: ") + fullPath);  
-        sendResponse(clientSocket, "404 Not Found", "text/html", "<h1>404 Not Found</h1>");  
-    }  
-} else {  
-    string fileContent = readFile(fullPath);  
-    if (!fileContent.empty()) {  
-        sendResponse(clientSocket, "200 OK", contentType, fileContent);  
-    } else {  
-        LOGW(string("Static file not found: ") + fullPath);  
-        sendResponse(clientSocket, "404 Not Found", "text/html", "<h1>404 Not Found</h1>");  
-    }  
-}  
+    // Session inner class to handle connection lifecycle
+    class Session : public std::enable_shared_from_this<Session> {
+        tcp::socket socket_;
+        beast::flat_buffer buffer_;
+        ProductDB& productDB_;
+        OrderDB& orderDB_;
 
-close(clientSocket);
+    public:
+        Session(tcp::socket socket, ProductDB& pdb, OrderDB& odb)
+            : socket_(std::move(socket)), productDB_(pdb), orderDB_(odb) {}
 
-}
+        void start() { readRequest(); }
 
+    private:
+        void readRequest() {
+            auto self = shared_from_this();
+            http::async_read(socket_, buffer_, req_,
+                [self](beast::error_code ec, std::size_t bytes_transferred){
+                    if (!ec)
+                        self->handleRequest();
+                });
+        }
 
-// ------------------- Main -------------------
+        http::request<http::string_body> req_;
+        http::response<http::string_body> res_;
+
+        void handleRequest() {
+            // Dispatch based on method and target
+            if (req_.method() == http::verb::get) {
+                handleGet();
+            } else if (req_.method() == http::verb::post) {
+                handlePost();
+            } else {
+                sendResponse(http::status::method_not_allowed, "Method Not Allowed");
+            }
+        }
+
+        void handleGet() {
+            std::string target = std::string(req_.target());
+
+            // Serve static files
+            if (target == "/" || target == "/index.html") {
+                serveFile("/index.html", "text/html");
+            }
+            else if (target == "/admin.html") {
+                serveFile("/admin.html", "text/html");
+            }
+            else if (target.find("/api/products") == 0) {
+                handleGetProducts();
+            }
+            else if (target.find("/api/orders") == 0) {
+                handleGetOrders();
+            }
+            else if (target.find("/api/shippingLabel") == 0) {
+                handleShippingLabel();
+            }
+            else {
+                // Try static file from public folder
+                std::string filepath = PUBLIC_DIR + target;
+                auto content = readFile(filepath);
+                if (content) {
+                    sendResponse(http::status::ok, *content, mimeType(filepath));
+                } else {
+                    sendResponse(http::status::not_found, "Not Found");
+                }
+            }
+        }
+
+        void handlePost() {
+            std::string target = std::string(req_.target());
+            if (target == "/api/products") {
+                handlePostProducts();
+            } else if (target == "/api/orders") {
+                handlePostOrders();
+            } else {
+                sendResponse(http::status::not_found, "Not Found");
+            }
+        }
+
+        void serveFile(const std::string& relpath, const std::string& contentType) {
+            std::string filepath = PUBLIC_DIR + relpath;
+            auto content = readFile(filepath);
+            if (!content) {
+                sendResponse(http::status::not_found, "File not found");
+                return;
+            }
+            sendResponse(http::status::ok, *content, contentType);
+        }
+
+        void sendResponse(http::status status, const std::string& body, const std::string& contentType = "text/plain") {
+            res_.version(req_.version());
+            res_.keep_alive(false);
+            res_.set(http::field::content_type, contentType);
+            res_.result(status);
+            res_.body() = body;
+            res_.prepare_payload();
+
+            auto self = shared_from_this();
+            http::async_write(socket_, res_,
+                [self](beast::error_code ec, std::size_t){
+                    self->socket_.shutdown(tcp::socket::shutdown_send, ec);
+                });
+        }
+
+        // Handle /api/products GET: Return all products JSON
+        void handleGetProducts() {
+            auto products = productDB_.getAllProducts();
+            json j(products);
+            sendResponse(http::status::ok, j.dump(), "application/json");
+        }
+// Handle /api/products POST: Replace all products (from admin panel)
+        void handlePostProducts() {
+            try {
+                auto body = req_.body();
+                auto data = json::parse(body);
+
+                if (!data.is_array()) {
+                    sendResponse(http::status::bad_request, "Expected JSON array");
+                    return;
+                }
+
+                // Clear existing products and insert new
+                {
+                    // Delete all existing products first
+                    // SQLite does not support TRUNCATE, so:
+                    std::lock_guard<std::mutex> lock(sqlite_mutex);
+                    char* errMsg = nullptr;
+                    sqlite3_exec(productDB_.db, "DELETE FROM products;", nullptr, nullptr, &errMsg);
+                    if (errMsg) {
+                        std::cerr << "Error deleting products: " << errMsg << std::endl;
+                        sqlite3_free(errMsg);
+                    }
+                }
+
+                // Insert all products
+                for (const auto& p : data) {
+                    if (!p.contains("id") || !p.contains("title") || !p.contains("price") || !p.contains("stock") || !p.contains("img")) {
+                        sendResponse(http::status::bad_request, "Invalid product format");
+                        return;
+                    }
+                    bool ok = productDB_.upsertProduct(p);
+                    if (!ok) {
+                        sendResponse(http::status::internal_server_error, "Failed to save products");
+                        return;
+                    }
+                }
+                sendResponse(http::status::ok, "Products updated");
+            } catch (const std::exception& e) {
+                sendResponse(http::status::bad_request, std::string("Invalid JSON: ") + e.what());
+            }
+        }
+
+        // Handle /api/orders GET: Return all orders with customer info
+        void handleGetOrders() {
+            auto orders = orderDB_.getAllOrders();
+
+            // To include product title & img in response, enrich orders:
+            auto products = productDB_.getAllProducts();
+            std::map<std::string, json> productMap;
+            for (const auto& p : products) {
+                productMap[p["id"].get<std::string>()] = p;
+            }
+
+            json jOrders = json::array();
+            for (auto& o : orders) {
+                json enriched = o;
+                auto pid = o["product_id"].get<std::string>();
+                if (productMap.find(pid) != productMap.end()) {
+                    enriched["product"] = productMap[pid]["title"];
+                    enriched["product_img"] = productMap[pid]["img"];
+                } else {
+                    enriched["product"] = "Unknown";
+                    enriched["product_img"] = "";
+                }
+                // Include shipping charge in total display if you want, or separate
+                jOrders.push_back(enriched);
+            }
+
+            sendResponse(http::status::ok, jOrders.dump(), "application/json");
+        }
+
+        // Handle /api/orders POST: Place order, send WhatsApp msg, save to DB
+        void handlePostOrders() {
+            try {
+                auto data = json::parse(req_.body());
+
+                // Validate input keys
+                if (!data.contains("product") || !data.contains("name") || !data.contains("contact") || !data.contains("email") || !data.contains("address")) {
+                    sendResponse(http::status::bad_request, "Missing required fields");
+                    return;
+                }
+                std::string productId = data["product"].get<std::string>();
+                std::string name = data["name"].get<std::string>();
+                std::string contact = data["contact"].get<std::string>();
+                std::string email = data["email"].get<std::string>();
+                std::string address = data["address"].get<std::string>();
+
+                // Fetch product info for price and stock check
+                auto optProduct = productDB_.getProduct(productId);
+                if (!optProduct) {
+                    sendResponse(http::status::bad_request, "Invalid product");
+                    return;
+                }
+                auto product = optProduct.value();
+
+                if (product["stock"].get<int>() <= 0) {
+                    sendResponse(http::status::bad_request, "Product out of stock");
+                    return;
+                }
+
+                double price = product["price"].get<double>();
+                int stock = product["stock"].get<int>();
+
+                // Calculate shipping charge
+                double shippingCharge = calculateShipping(price);
+
+                double totalAmount = price + shippingCharge;
+
+                // Payment method placeholder (you can enhance later)
+                std::string paymentMethod = "Cash on Delivery";
+
+                // Save order to DB
+                json orderJson = {
+                    {"customer", {
+                        {"name", name},
+                        {"contact", contact},
+                        {"email", email},
+                        {"address", address}
+                    }},
+                    {"product_id", productId},
+                    {"total_amount", totalAmount},
+                    {"shipping_charge", shippingCharge},
+                    {"payment_method", paymentMethod}
+                };
+
+                if (!orderDB_.addOrder(orderJson)) {
+                    sendResponse(http::status::internal_server_error, "Failed to place order");
+                    return;
+                }
+
+                // Decrement product stock in SQLite DB
+                product["stock"] = stock - 1;
+                productDB_.upsertProduct(product);
+
+                // Send WhatsApp notification (simulate by returning URL)
+                std::string waMsg = "Hello " + name + ", your order for '" + product["title"].get<std::string>() +
+                    "' has been received. Total: Rs." + std::to_string(totalAmount) + ". Thank you for shopping with us!";
+
+                // WhatsApp link: wa.me/<countrycode><number>?text=...
+                std::string waNumber = contact;
+                // Remove any non-digit chars from number, assume Pakistan country code +92 for example:
+                waNumber.erase(std::remove_if(waNumber.begin(), waNumber.end(),
+                                              [](char c){ return !isdigit(c); }), waNumber.end());
+                if (waNumber[0] == '0') waNumber.erase(0,1);
+                std::string waUrl = "https://wa.me/92" + waNumber + "?text=" +
+                    beast::detail::base64_encode(beast::detail::to_string_view(beast::detail::url_encode(waMsg)));
+
+                // You can return this WhatsApp URL for frontend to open or just text msg
+                // For simplicity, return simple message without base64 encoding:
+                std::string waTextUrl = "https://wa.me/92" + waNumber + "?text=" + urlEncode(waMsg);
+
+                // Respond success
+                sendResponse(http::status::ok, "Order placed successfully! You can send WhatsApp message: " + waTextUrl);
+
+            } catch (const std::exception& e) {
+                sendResponse(http::status::bad_request, std::string("Invalid JSON or error: ") + e.what());
+            }
+        }
+
+        // Shipping label API: /api/shippingLabel?id=order_id
+        void handleShippingLabel() {
+            auto target = std::string(req_.target());
+            auto pos = target.find("?");
+            if (pos == std::string::npos) {
+                sendResponse(http::status::bad_request, "Missing order id");
+                return;
+            }
+            auto query = target.substr(pos+1);
+            std::string orderId;
+            for (const auto& kv : splitQuery(query)) {
+                if (kv.first == "id") {
+                    orderId = kv.second;
+                    break;
+                }
+            }
+            if (orderId.empty()) {
+                sendResponse(http::status::bad_request, "Missing id parameter");
+                return;
+            }
+
+            int oid = std::stoi(orderId);
+            // Fetch order and customer info from DB
+            try {
+                pqxx::work txn(*orderDB_.conn);
+                pqxx::result r = txn.exec_params(R"(
+                    SELECT o.id, c.name, c.contact, c.email, c.address, o.product_id,
+                           o.total_amount, o.shipping_charge, o.payment_method, o.order_date
+                    FROM orders o
+                    JOIN customers c ON o.customer_id = c.id
+                    WHERE o.id = $1 LIMIT 1;
+                )", oid);
+                if (r.empty()) {
+                    sendResponse(http::status::not_found, "Order not found");
+                    return;
+                }
+                auto row = r[0];
+                std::stringstream label;
+                label << "Shipping Label\n";
+                label << "-------------------------\n";
+                label << "Order ID: " << row["id"].as<int>() << "\n";
+                label << "Name: " << row["name"].as<std::string>() << "\n";
+                label << "Contact: " << row["contact"].as<std::string>() << "\n";
+                label << "Email: " << row["email"].as<std::string>() << "\n";
+                label << "Address: " << row["address"].as<std::string>() << "\n";
+                label << "Product ID: " << row["product_id"].as<std::string>() << "\n";
+                label << "Total Amount: Rs." << row["total_amount"].as<double>() << "\n";
+                label << "Shipping Charge: Rs." << row["shipping_charge"].as<double>() << "\n";
+                label << "Payment Method: " << row["payment_method"].as<std::string>() << "\n";
+                label << "Order Date: " << row["order_date"].as<std::string>() << "\n";
+
+                sendResponse(http::status::ok, label.str(), "text/plain");
+            } catch (const std::exception& e) {
+                sendResponse(http::status::internal_server_error, "Error fetching shipping label");
+            }
+        }
+
+        // --- Helpers ---
+
+        static std::map<std::string, std::string> splitQuery(const std::string& query) {
+            std::map<std::string, std::string> result;
+            std::istringstream ss(query);
+            std::string token;
+            while (std::getline(ss, token, '&')) {
+                auto pos = token.find('=');
+                if (pos == std::string::npos) continue;
+                auto key = token.substr(0, pos);
+                auto val = token.substr(pos+1);
+                result[key] = urlDecode(val);
+            }
+            return result;
+        }
+
+        static std::string urlDecode(const std::string& str) {
+            std::string ret;
+            char ch;
+            int i, ii;
+            for (i=0; i<str.length(); i++) {
+                if (str[i] == '%') {
+                    sscanf(str.substr(i+1,2).c_str(), "%x", &ii);
+                    ch = static_cast<char>(ii);
+                    ret += ch;
+                    i = i+2;
+                }
+                else if (str[i] == '+') {
+                    ret += ' ';
+                }
+                else {
+                    ret += str[i];
+                }
+            }
+            return ret;
+        }
+
+        static std::string urlEncode(const std::string &value) {
+            std::ostringstream escaped;
+            escaped.fill('0');
+            escaped << std::hex;
+
+            for (char c : value) {
+                if (isalnum((unsigned char)c) || c == '-' || c == '_' || c == '.' || c == '~') {
+                    escaped << c;
+                } else {
+                    escaped << '%' << std::uppercase << std::setw(2) << int((unsigned char)c) << std::nouppercase;
+                }
+            }
+            return escaped.str();
+        }
+    };
+};
 
 int main() {
-    // Enhancement: read env config before continuing
-    const char *envp_port = getenv("PORT");
-    const char *env_workers = getenv("MAX_WORKERS");
-    const char *env_data = getenv("DATA_DIR");
+    try {
+        // Read environment variables for DB and config
+        DB_HOST = std::getenv("DB_HOST") ? std::getenv("DB_HOST") : "";
+        DB_PORT = std::getenv("DB_PORT") ? std::getenv("DB_PORT") : "5432";
+        DB_NAME = std::getenv("DB_NAME") ? std::getenv("DB_NAME") : "";
+        DB_USER = std::getenv("DB_USER") ? std::getenv("DB_USER") : "";
+        DB_PASS = std::getenv("DB_PASS") ? std::getenv("DB_PASS") : "";
 
-    if (env_data && strlen(env_data) > 0) {  
-        g_data_dir = string(env_data);  
-    }  
-    if (env_workers && strlen(env_workers) > 0) {  
-        try { g_max_workers = stoi(string(env_workers)); } catch(...) { g_max_workers = 4; }  
-    } else {  
-        int hc = (int)thread::hardware_concurrency();  
-        if (hc > 1) g_max_workers = min(hc, 8);  
-    }  
+        DATA_DIR = std::getenv("DATA_DIR") ? std::getenv("DATA_DIR") : "/var/data";
+        SQLITE_DB_PATH = DATA_DIR + "/products.db";
 
-    ensureDataFolder("");  
+        std::string pgConnStr = "host=" + DB_HOST +
+                                " port=" + DB_PORT +
+                                " dbname=" + DB_NAME +
+                                " user=" + DB_USER +
+                                " password=" + DB_PASS;
 
-    if (!initDatabase()) {  
-        LOGE("Could not initialize database - exiting");  
-        return 1;  
-    }  
+        unsigned short port = 8080;
 
-    migrateTextFilesIfNeeded();  
+        Server server("0.0.0.0", port, SQLITE_DB_PATH, pgConnStr);
+        server.run();
 
-    loadProducts();  
-    loadOrders();  
-
-    signal(SIGPIPE, SIG_IGN);  
-
-    struct sigaction sa{};  
-    sa.sa_handler = gracefulShutdown;  
-    sigemptyset(&sa.sa_mask);  
-    sa.sa_flags = 0;  
-    sigaction(SIGINT, &sa, nullptr);  
-    sigaction(SIGTERM, &sa, nullptr);  
-
-    ThreadPool pool(max(1, g_max_workers));  
-    g_threadpool_ptr = &pool;  
-
-    int server_fd;  
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {  
-        perror("socket failed");  
-        if (g_db) sqlite3_close(g_db);  
-        return 1;  
-    }  
-    g_server_fd = server_fd;  
-
-    int opt = 1;  
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {  
-        perror("setsockopt SO_REUSEADDR failed");  
+    } catch (const std::exception& e) {
+        std::cerr << "Fatal error: " << e.what() << "\n";
+        return EXIT_FAILURE;
     }
-
-#ifdef SO_REUSEPORT
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) < 0) {
-        perror("setsockopt SO_REUSEPORT failed (non-fatal)");
-    }
-#endif
-
-    struct sockaddr_in address{};  
-    address.sin_family = AF_INET;  
-    address.sin_addr.s_addr = INADDR_ANY;  
-
-    int port = 8080;  
-    if (envp_port) {  
-        try { port = stoi(string(envp_port)); } catch(...) { port = 8080; }  
-    }  
-    address.sin_port = htons(port);  
-
-    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {  
-        perror("bind failed");  
-        if (g_db) sqlite3_close(g_db);  
-        return 1;  
-    }  
-
-    if (listen(server_fd, 128) < 0) {  
-        perror("listen");  
-        if (g_db) sqlite3_close(g_db);  
-        return 1;  
-    }  
-
-    LOGI(string("🚀 Server running on http://0.0.0.0:") +
-         to_string(port) +
-         " (workers=" + to_string(g_max_workers) +
-         ", data_dir=" + g_data_dir + ")");  
-
-    // ================= ACCEPT LOOP =================
-    while (g_running.load()) {  
-        struct sockaddr_in clientAddr{};  
-        socklen_t clientLen = sizeof(clientAddr);  
-        int clientSock = accept(server_fd, (struct sockaddr *)&clientAddr, &clientLen);  
-
-        if (clientSock < 0) {  
-            if (!g_running.load()) break;  
-            perror("accept");  
-            continue;  
-        }  
-
-        int flag = 1;  
-        setsockopt(clientSock, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(int));  
-
-        char client_ip[INET_ADDRSTRLEN] = {0};  
-        inet_ntop(AF_INET, &clientAddr.sin_addr, client_ip, sizeof(client_ip));  
-        string cli = string(client_ip) + ":" + to_string(ntohs(clientAddr.sin_port));  
-        LOGI(string("Accepted connection from ") + cli);  
-
-        try {
-            pool.enqueue([clientSock]() {
-                handleClient(clientSock);
-            });
-        } catch (const std::exception &ex) {
-            LOGE(string("Failed to enqueue client handler: ") + ex.what());
-            close(clientSock);
-        }
-    } // ✅ THIS BRACE WAS MISSING
-
-    // ================ SHUTDOWN =================
-    LOGI("Server shutting down...");
-
-    if (g_server_fd >= 0) {
-        close(g_server_fd);
-        g_server_fd = -1;
-    }
-
-    g_threadpool_ptr = nullptr;
-
-    if (g_db) {
-        sqlite3_close(g_db);
-        g_db = nullptr;
-    }
-
-    LOGI("Server exited cleanly.");
-    return 0;
+    return EXIT_SUCCESS;
 }
