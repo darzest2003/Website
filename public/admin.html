@@ -1,179 +1,196 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>ONLINETRADERZ — Admin Panel</title>
-  <link rel="stylesheet" href="admin.css">
+<meta charset="UTF-8">
+<title>ONLINETRADERZ — Admin Panel</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="stylesheet" href="admin.css">
+<style>
+body { font-family: Arial; margin:0; background:#f4f6f8; }
+.topbar { background:#111; color:#fff; padding:10px 20px; display:flex; justify-content:space-between; align-items:center; }
+.sidebar { position:fixed; top:50px; left:0; width:220px; bottom:0; background:#1e1e1e; color:#fff; padding:10px; overflow-y:auto; }
+.sidebar li { list-style:none; padding:12px; cursor:pointer; }
+.sidebar li:hover, .sidebar li.active { background:#333; }
+.main { margin-left:240px; padding:20px; }
+.card { background:#fff; padding:20px; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,.1); margin-bottom:15px; }
+.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:15px; }
+table { width:100%; border-collapse:collapse; background:#fff; margin-top:15px; }
+th,td { padding:10px; border-bottom:1px solid #ddd; text-align:left; }
+input,textarea,select,button { padding:10px; margin:5px 0; width:100%; box-sizing:border-box; }
+button { cursor:pointer; background:#111; color:#fff; border:none; border-radius:4px; }
+button:hover { background:#333; }
+.hidden { display:none; }
+.toast { position:fixed; bottom:20px; right:20px; background:#111; color:#fff; padding:12px 18px; border-radius:4px; opacity:0; transition:.3s; z-index:1000; }
+.toast.show { opacity:1; }
+</style>
 </head>
+
 <body>
 
-<button class="admin-menu-toggle">☰</button>
-
-<aside class="admin-sidebar">
-  <h3>Admin Panel</h3>
-  <ul>
-    <li data-section="products">Products</li>
-    <li data-section="orders">Orders</li>
-    <li data-section="analytics">Analytics</li>
-  </ul>
-</aside>
-
-<script>
-if (sessionStorage.getItem("adminLoggedIn") !== "true") {
-  location.href = "admin_login.html";
-}
-</script>
-
-<header class="topbar">
-  <h1>Admin Dashboard</h1>
+<div class="topbar">
+  <h2>Admin Dashboard</h2>
   <button onclick="logout()">Logout</button>
-</header>
+</div>
 
-<section class="stats">
-  <div class="card">Total Orders<br><span id="orderCount">0</span></div>
-  <div class="card">Total Revenue<br>Rs.<span id="revenue">0</span></div>
-</section>
+<ul class="sidebar">
+  <li class="active" data-page="dashboard">Dashboard</li>
+  <li data-page="products">Products</li>
+  <li data-page="orders">Orders</li>
+</ul>
 
-<!-- ANALYTICS -->
-<section id="analytics" class="admin-section">
-  <h2>Quick Stats</h2>
-</section>
+<div class="main">
 
-<!-- ORDERS -->
-<section id="orders" class="panel admin-section">
-  <h2>Recent Orders</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Name</th>
-        <th>Contact</th>
-        <th>Payment</th>
-        <th>Total</th>
-      </tr>
-    </thead>
-    <tbody id="ordersBody"></tbody>
-  </table>
-</section>
+<!-- DASHBOARD -->
+<div id="dashboard" class="page">
+  <div class="grid">
+    <div class="card">Total Orders<br><h2 id="statOrders">0</h2></div>
+    <div class="card">Revenue<br><h2>Rs.<span id="statRevenue">0</span></h2></div>
+  </div>
+</div>
 
 <!-- PRODUCTS -->
-<section id="products" class="panel admin-section active">
-  <h2>Add Product</h2>
-  <input id="pTitle" placeholder="Product Name">
-  <input id="pPrice" type="number" placeholder="Price">
-  <button onclick="addProduct()">Add Product</button>
+<div id="products" class="page hidden">
+  <div class="card">
+    <h3>Add Product</h3>
+    <input id="pTitle" placeholder="Product Title">
+    <input id="pPrice" type="number" placeholder="Price">
+    <input id="pStock" type="number" placeholder="Stock">
+    <input id="pImg" placeholder="Image URL">
+    <button onclick="addProduct()">Add Product</button>
+  </div>
 
-  <h2 style="margin-top:20px">Products</h2>
-  <ul id="productList"></ul>
-</section>
+  <div class="card">
+    <h3>Product List</h3>
+    <ul id="productList"></ul>
+  </div>
+</div>
+
+<!-- ORDERS -->
+<div id="orders" class="page hidden">
+  <div class="card">
+    <h3>Received Orders</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Order ID</th><th>Name</th><th>Contact</th><th>Email</th><th>Address</th><th>Payment</th><th>Total</th><th>Shipping</th><th>Items</th><th>Label</th>
+        </tr>
+      </thead>
+      <tbody id="ordersTable"></tbody>
+    </table>
+  </div>
+</div>
+
+</div>
+
+<div class="toast" id="toast"></div>
 
 <script>
-/* 🔥 SAME ORIGIN — DO NOT CHANGE */
-const API = "";
+const API = "https://cppbackened.onrender.com";
 
-/* ---------- AUTH ---------- */
-function logout() {
-  sessionStorage.clear();
-  location.href = "admin_login.html";
-}
+/* ============== AUTH ============== */
+if(sessionStorage.getItem("adminLoggedIn")!=="true"){ location.href="admin_login.html"; }
+function logout(){ sessionStorage.clear(); location.href="admin_login.html"; }
+function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),2500); }
 
-/* ---------- ORDERS ---------- */
-async function loadOrders() {
-  try {
-    const res = await fetch("/api/orders");
-    const orders = await res.json();
-
-    let total = 0;
-    document.getElementById("orderCount").textContent = orders.length;
-
-    const tbody = document.getElementById("ordersBody");
-    tbody.innerHTML = "";
-
-    orders.reverse().forEach(o => {
-      const amt = Number(o.totalAmount || 0);
-      total += amt;
-
-      tbody.innerHTML += `
-        <tr>
-          <td>${o.id}</td>
-          <td>${o.name}</td>
-          <td>${o.contact}</td>
-          <td>${o.payment}</td>
-          <td>Rs.${amt.toFixed(2)}</td>
-        </tr>`;
-    });
-
-    document.getElementById("revenue").textContent = total.toFixed(2);
-  } catch (e) {
-    console.error("Orders load failed", e);
-  }
-}
-
-/* ---------- PRODUCTS ---------- */
-async function loadProducts() {
-  try {
-    const res = await fetch("/api/products");
-    const products = await res.json();
-
-    const ul = document.getElementById("productList");
-    ul.innerHTML = "";
-
-    products.forEach(p => {
-      ul.innerHTML += `<li>${p.title} — Rs.${p.price}</li>`;
-    });
-  } catch (e) {
-    console.error("Products load failed", e);
-  }
-}
-
-async function addProduct() {
-  const name = document.getElementById("pTitle").value.trim();
-  const price = Number(document.getElementById("pPrice").value);
-
-  if (!name || price <= 0) {
-    alert("Enter valid product name and price");
-    return;
-  }
-
-  try {
-    const res = await fetch("/api/addProduct", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, price })
-    });
-
-    if (!res.ok) throw new Error();
-
-    alert("Product added successfully");
-    document.getElementById("pTitle").value = "";
-    document.getElementById("pPrice").value = "";
-
-    loadProducts();
-  } catch (e) {
-    alert("Server not responding");
-    console.error(e);
-  }
-}
-
-/* ---------- SIDEBAR ---------- */
-const adminToggle = document.querySelector('.admin-menu-toggle');
-const adminSidebar = document.querySelector('.admin-sidebar');
-const adminItems = document.querySelectorAll('.admin-sidebar li');
-const adminSections = document.querySelectorAll('.admin-section');
-
-adminToggle.onclick = () => adminSidebar.classList.toggle('active');
-
-adminItems.forEach(item => {
-  item.onclick = () => {
-    adminSections.forEach(s => s.classList.remove('active'));
-    document.getElementById(item.dataset.section)?.classList.add('active');
-    adminSidebar.classList.remove('active');
+/* ============== NAV ============== */
+document.querySelectorAll(".sidebar li").forEach(li=>{
+  li.onclick=()=>{
+    document.querySelectorAll(".sidebar li").forEach(i=>i.classList.remove("active"));
+    document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));
+    li.classList.add("active");
+    document.getElementById(li.dataset.page).classList.remove("hidden");
   };
 });
 
-/* ---------- INIT ---------- */
-loadOrders();
+/* ============== LOAD DATA ============== */
+async function loadDashboard(){
+  try{
+    const orders = await (await fetch(`${API}/api/orders`)).json();
+    let revenue=0;
+    orders.forEach(o=>revenue+=Number(o.totalAmount||0));
+    document.getElementById("statOrders").textContent=orders.length;
+    document.getElementById("statRevenue").textContent=revenue.toFixed(2);
+  }catch(e){ console.error(e); }
+}
+
+async function loadProducts(){
+  try{
+    const products = await (await fetch(`${API}/api/products`)).json();
+    const ul = document.getElementById("productList");
+    ul.innerHTML="";
+    products.forEach(p=>{
+      ul.innerHTML+=`<li>${p.title} — Rs.${p.price} | Stock: ${p.stock} <button onclick="deleteProduct('${p.id}')">Delete</button></li>`;
+    });
+  }catch(e){ console.error(e); }
+}
+
+async function loadOrders(){
+  try{
+    const orders = await (await fetch(`${API}/api/orders`)).json();
+    const tbody = document.getElementById("ordersTable");
+    tbody.innerHTML="";
+    orders.reverse().forEach(o=>{
+      tbody.innerHTML+=`<tr>
+        <td>${o.id}</td>
+        <td>${o.name}</td>
+        <td>${o.contact}</td>
+        <td>${o.email||'-'}</td>
+        <td>${o.address}</td>
+        <td>${o.payment}</td>
+        <td>Rs.${o.totalAmount}</td>
+        <td>Rs.${o.shipping||0}</td>
+        <td>${o.items.map(i=>`${i.title}×${i.quantity}`).join(", ")}</td>
+        <td><button onclick="downloadLabel('${o.id}')">Download</button></td>
+      </tr>`;
+    });
+  }catch(e){ console.error(e); }
+}
+
+/* ============== PRODUCT ACTIONS ============== */
+async function addProduct(){
+  const title=document.getElementById("pTitle").value.trim();
+  const price=Number(document.getElementById("pPrice").value);
+  const stock=Number(document.getElementById("pStock").value);
+  const img=document.getElementById("pImg").value.trim();
+  if(!title||!price||!stock||!img){ toast("Please fill all fields"); return; }
+
+  try{
+    const existing = await (await fetch(`${API}/api/products`)).json();
+    const newProduct = { id:"p_"+Math.random().toString(36).slice(2,9), title, price, stock, img };
+    const res = await fetch(`${API}/api/products`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify([...existing,newProduct]) });
+    if(!res.ok) throw 1;
+    toast("✅ Product added");
+    document.getElementById("pTitle").value="";
+    document.getElementById("pPrice").value="";
+    document.getElementById("pStock").value="";
+    document.getElementById("pImg").value="";
+    loadProducts();
+  }catch(e){ console.error(e); toast("Server error"); }
+}
+
+async function deleteProduct(id){
+  try{
+    const products = await (await fetch(`${API}/api/products`)).json();
+    const updated = products.filter(p=>p.id!==id);
+    const res = await fetch(`${API}/api/products`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(updated) });
+    if(!res.ok) throw 1;
+    toast("Product deleted");
+    loadProducts();
+  }catch(e){ console.error(e); toast("Server error"); }
+}
+
+/* ============== ORDERS ACTIONS ============== */
+function downloadLabel(id){
+  const a=document.createElement("a");
+  a.href=`${API}/api/shippingLabel?id=${id}`;
+  a.download=`Shipping_${id}.txt`;
+  a.click();
+}
+
+/* ============== INIT ============== */
+loadDashboard();
 loadProducts();
+loadOrders();
 </script>
 
 </body>
