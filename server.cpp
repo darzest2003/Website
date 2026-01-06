@@ -849,26 +849,46 @@ if (path.find("/api/products") == 0 && method == "GET") {
 // ------------------- POST /api/addProduct -------------------
 if (path.find("/api/addProduct") == 0 && method == "POST") {
     json j = json::parse(body, nullptr, false);
-    if (j.is_discarded() || !j.contains("title") || !j.contains("price")) {
+
+    // fallback for form-encoded input
+    if (j.is_discarded() || !j.contains("name") || !j.contains("price")) {
+        auto form = parseFormUrlEncoded(body);
+        if (form.count("name")) j["name"] = form["name"];
+        if (form.count("price")) {
+            try { j["price"] = stod(form["price"]); } catch(...) { j["price"] = 0.0; }
+        }
+    }
+
+    if (!j.contains("name") || !j.contains("price")) {
         sendResponse(clientSocket, "400 Bad Request", "application/json",
                      "{\"success\":false,\"error\":\"Invalid input\"}");
         close(clientSocket);
         return;
     }
 
-    string title = j["title"].get<string>();
+    string name = j["name"].get<string>();
     double price = j["price"].get<double>();
 
     Product p;
     {
         lock_guard<mutex> lock(g_storage_mutex);
-        currentProductID = products.empty() ? 0 : stoi(products.back().id.substr(1));
-        p.id = "p" + to_string(++currentProductID);
-        p.title = title;
+
+        // Find max existing product ID
+        int maxID = 0;
+        for (auto &prod : products) {
+            if (prod.id.size() > 1 && prod.id[0] == 'p') {
+                try { int n = stoi(prod.id.substr(1)); if (n > maxID) maxID = n; } catch(...) {}
+            }
+        }
+        p.id = "p" + to_string(maxID + 1);
+        p.title = name;
         p.price = price;
         p.img = "";
         p.stock = 0;
+
         products.push_back(p);
+
+        // Save new product to DB
         saveProducts();
     }
 
