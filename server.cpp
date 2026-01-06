@@ -1278,3 +1278,4 @@ if (g_db) {
 }
 
 LOGI("Server exited cleanly");
+}
