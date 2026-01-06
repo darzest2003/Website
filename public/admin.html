@@ -1,125 +1,129 @@
-<!DOCTYPE html>  <html lang="en">  
-<head>  
-  <meta charset="UTF-8">  
-  <title>ONLINETRADERZ — Admin Panel</title>  
-  <link rel="stylesheet" href="admin.css">  
-</head>  
-<body>  
-  <button class="admin-menu-toggle">☰</button>  <aside class="admin-sidebar">  
-  <h3>Admin Panel</h3>  
-  <ul>  
-    <li data-section="products">Products</li>  
-    <li data-section="orders">Orders</li>  
-    <li data-section="address">Address Book</li>  
-    <li data-section="analytics">Analytics</li>  
-  </ul>  
-</aside>  <section id="analytics" class="admin-section">  
-  <h2>Quick Stats</h2>  
-  <div id="stats"></div>  
-</section>  <script>  
-if (sessionStorage.getItem("adminLoggedIn") !== "true") {  
-  window.location.href = "admin_login.html";  
-}  
-</script>  <header class="topbar">  
-  <h1>Admin Dashboard</h1>  
-  <button onclick="logout()">Logout</button>  
-</header>  <section class="stats">  
-  <div class="card">Total Orders<br><span id="orderCount">0</span></div>  
-  <div class="card">Total Revenue<br>Rs.<span id="revenue">0</span></div>  
-</section>    <section id="address" class="panel admin-section">  
-  <h2>Address Book</h2>  
-  <p>Addresses from orders will appear here.</p>  
-  </section>  <section id="orders" class="panel admin-section">  
-  <h2>Recent Orders</h2>  
-  <table>  
-    <thead>  
-      <tr>  
-        <th>Order ID</th>  
-        <th>Name</th>  
-        <th>Contact</th>  
-        <th>Payment</th>  
-        <th>Total</th>  
-        <th>Label</th>  
-      </tr>  
-    </thead>  
-    <tbody id="ordersBody"></tbody>  
-  </table>  
-</section>  <section id="products" class="panel admin-section active">  
-  <h2>Add Product</h2>  
-  <input id="pTitle" placeholder="Product Title">  
-  <input id="pPrice" type="number" placeholder="Price">  
-  <input id="pStock" type="number" placeholder="Stock">  
-  <input id="pImg" placeholder="Image URL (productname.jpg)">  
-  <button onclick="addProduct()">Add Product</button>    <h2 style="margin-top:20px">Products</h2>  
-  <ul id="productList"></ul>  
-</section>  <script>  
-const API = "http://cppbackened.onrender.com";
-  
-function logout(){  
-  sessionStorage.clear();  
-  location.href="admin_login.html";  
-}  
-  
-// ---------------- Orders ----------------  
-async function loadOrders() {  
-  try {  
-    const res = await fetch(`${API}/api/orders`);  
-    const orders = await res.json(); // expects a proper JSON array  
-  
-    let total = 0;  
-    document.getElementById("orderCount").textContent = orders.length;  
-  
-    const tbody = document.getElementById("ordersBody");  
-    tbody.innerHTML = "";  
-  
-    // Display orders newest first  
-    orders.reverse().forEach(o => {  
-  const amount = Number(o.totalAmount) || 0;  // Ensure it's a number  
-  total += amount;  
-  tbody.innerHTML += `  
-    <tr>  
-      <td>${o.id}</td>  
-      <td>${o.name}</td>  
-      <td>${o.contact}</td>  
-      <td>${o.payment}</td>  
-      <td>Rs.${amount.toFixed(2)}</td>  
-      <td>  
-        <button onclick="viewLabel('${o.id}')">View</button>  
-        <button onclick="downloadLabel('${o.id}')">Download</button>  
-      </td>  
-    </tr>`;  
-});  
-  
-    document.getElementById("revenue").textContent = total;  
-  } catch (err) {  
-    console.error("Failed to load orders:", err);  
-  }  
-}  
-  
-function viewLabel(id){  
-  window.open(`${API}/api/shippingLabel?id=${id}`,"_blank");  
-}  
-  
-function downloadLabel(id){  
-  const a=document.createElement("a");  
-  a.href=`${API}/api/shippingLabel?id=${id}`;  
-  a.download=`Shipping_${id}.txt`;  
-  a.click();  
-}  
-  
-// ---------------- Products ----------------  
-async function loadProducts(){
-  const res = await fetch(`${API}/api/products`);
-  const data = await res.json();
-  const ul = document.getElementById("productList");
-  ul.innerHTML="";
-  data.forEach(p=>{
-    ul.innerHTML+=`
-      <li>
-        ${p.title} — Rs.${p.price}
-        <button onclick="deleteProduct('${p.id}')">Delete</button>
-      </li>`;
-  });
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ONLINETRADERZ — Admin Panel</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+<button class="admin-menu-toggle">☰</button>
+
+<aside class="admin-sidebar">
+  <h3>Admin Panel</h3>
+  <ul>
+    <li data-section="products">Products</li>
+    <li data-section="orders">Orders</li>
+    <li data-section="analytics">Analytics</li>
+  </ul>
+</aside>
+
+<script>
+if (sessionStorage.getItem("adminLoggedIn") !== "true") {
+  location.href = "admin_login.html";
+}
+</script>
+
+<header class="topbar">
+  <h1>Admin Dashboard</h1>
+  <button onclick="logout()">Logout</button>
+</header>
+
+<section class="stats">
+  <div class="card">Total Orders<br><span id="orderCount">0</span></div>
+  <div class="card">Total Revenue<br>Rs.<span id="revenue">0</span></div>
+</section>
+
+<!-- ANALYTICS -->
+<section id="analytics" class="admin-section">
+  <h2>Quick Stats</h2>
+</section>
+
+<!-- ORDERS -->
+<section id="orders" class="panel admin-section">
+  <h2>Recent Orders</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Contact</th>
+        <th>Payment</th>
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody id="ordersBody"></tbody>
+  </table>
+</section>
+
+<!-- PRODUCTS -->
+<section id="products" class="panel admin-section active">
+  <h2>Add Product</h2>
+  <input id="pTitle" placeholder="Product Name">
+  <input id="pPrice" type="number" placeholder="Price">
+  <button onclick="addProduct()">Add Product</button>
+
+  <h2 style="margin-top:20px">Products</h2>
+  <ul id="productList"></ul>
+</section>
+
+<script>
+/* 🔥 SAME ORIGIN — DO NOT CHANGE */
+const API = "";
+
+/* ---------- AUTH ---------- */
+function logout() {
+  sessionStorage.clear();
+  location.href = "admin_login.html";
+}
+
+/* ---------- ORDERS ---------- */
+async function loadOrders() {
+  try {
+    const res = await fetch("/api/orders");
+    const orders = await res.json();
+
+    let total = 0;
+    document.getElementById("orderCount").textContent = orders.length;
+
+    const tbody = document.getElementById("ordersBody");
+    tbody.innerHTML = "";
+
+    orders.reverse().forEach(o => {
+      const amt = Number(o.totalAmount || 0);
+      total += amt;
+
+      tbody.innerHTML += `
+        <tr>
+          <td>${o.id}</td>
+          <td>${o.name}</td>
+          <td>${o.contact}</td>
+          <td>${o.payment}</td>
+          <td>Rs.${amt.toFixed(2)}</td>
+        </tr>`;
+    });
+
+    document.getElementById("revenue").textContent = total.toFixed(2);
+  } catch (e) {
+    console.error("Orders load failed", e);
+  }
+}
+
+/* ---------- PRODUCTS ---------- */
+async function loadProducts() {
+  try {
+    const res = await fetch("/api/products");
+    const products = await res.json();
+
+    const ul = document.getElementById("productList");
+    ul.innerHTML = "";
+
+    products.forEach(p => {
+      ul.innerHTML += `<li>${p.title} — Rs.${p.price}</li>`;
+    });
+  } catch (e) {
+    console.error("Products load failed", e);
+  }
 }
 
 async function addProduct() {
@@ -127,52 +131,50 @@ async function addProduct() {
   const price = Number(document.getElementById("pPrice").value);
 
   if (!name || price <= 0) {
-    alert("❌ Invalid product data");
+    alert("Enter valid product name and price");
     return;
   }
 
   try {
-    const res = await fetch(`${API}/api/addProduct`, {
+    const res = await fetch("/api/addProduct", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, price })
     });
 
-    const data = await res.json();
-    if (!data.success) throw new Error();
+    if (!res.ok) throw new Error();
 
-    alert("✅ Product added");
+    alert("Product added successfully");
+    document.getElementById("pTitle").value = "";
+    document.getElementById("pPrice").value = "";
+
     loadProducts();
-
   } catch (e) {
-    alert("❌ Server not responding");
+    alert("Server not responding");
     console.error(e);
   }
 }
 
-  
-loadOrders();  
-loadProducts();  
+/* ---------- SIDEBAR ---------- */
+const adminToggle = document.querySelector('.admin-menu-toggle');
+const adminSidebar = document.querySelector('.admin-sidebar');
+const adminItems = document.querySelectorAll('.admin-sidebar li');
+const adminSections = document.querySelectorAll('.admin-section');
+
+adminToggle.onclick = () => adminSidebar.classList.toggle('active');
+
+adminItems.forEach(item => {
+  item.onclick = () => {
+    adminSections.forEach(s => s.classList.remove('active'));
+    document.getElementById(item.dataset.section)?.classList.add('active');
+    adminSidebar.classList.remove('active');
+  };
+});
+
+/* ---------- INIT ---------- */
+loadOrders();
+loadProducts();
 </script>
-  <script>  
-  const adminToggle = document.querySelector('.admin-menu-toggle');  
-  const adminSidebar = document.querySelector('.admin-sidebar');  
-  const adminItems = document.querySelectorAll('.admin-sidebar li');  
-  const adminSections = document.querySelectorAll('.admin-section');  
-  
-  // Toggle sidebar  
-  adminToggle.addEventListener('click', () => {  
-    adminSidebar.classList.toggle('active');  
-  });  
-  
-  // Switch sections  
-  adminItems.forEach(item => {  
-    item.addEventListener('click', () => {  
-      adminSections.forEach(sec => sec.classList.remove('active'));  
-      const target = document.getElementById(item.dataset.section);  
-      if (target) target.classList.add('active');  
-      adminSidebar.classList.remove('active');  
-    });  
-  });  
-</script>  </body>  
+
+</body>
 </html>
