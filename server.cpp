@@ -1260,6 +1260,7 @@ while (g_running.load()) {
 }
 
 // ================= SHUTDOWN =================
+// ================= SHUTDOWN =================
 LOGI("Server shutting down...");
 
 // Close listening socket if not already closed
@@ -1268,14 +1269,12 @@ if (g_server_fd >= 0) {
     g_server_fd = -1;
 }
 
-// ThreadPool destructor will join all workers
-g_threadpool_ptr = nullptr;
-
-// Close SQLite DB
+// Optional: close DB
 if (g_db) {
     sqlite3_close(g_db);
     g_db = nullptr;
 }
 
 LOGI("Server exited cleanly");
+return 0;
 }
