@@ -3,9 +3,9 @@
 # =========================
 FROM ubuntu:22.04 AS builder
 
-# Install build tools + PostgreSQL dev + SQLite dev + Boost + libpqxx
+# Install build tools + PostgreSQL dev + SQLite dev + Boost + JSON
 RUN apt-get update && apt-get install -y \
-    g++ cmake make git \
+    g++ cmake make git pkg-config \
     libpq-dev libpqxx-dev libsqlite3-dev \
     libboost-system-dev libboost-thread-dev libboost-filesystem-dev \
     nlohmann-json3-dev \
@@ -14,8 +14,10 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 COPY server.cpp .
 
-# Compile your server with PostgreSQL, SQLite, and Boost libraries
-RUN g++ -std=c++17 -O3 -pthread server.cpp -o server -lpq -lpqxx -lsqlite3 -lboost_system -lboost_thread \
+# Compile the server
+RUN g++ -std=c++17 -O3 -pthread server.cpp -o server \
+    $(pkg-config --cflags --libs libpqxx) \
+    -lsqlite3 -lboost_system -lboost_thread -lboost_filesystem \
     && strip server
 
 # =========================
@@ -23,7 +25,7 @@ RUN g++ -std=c++17 -O3 -pthread server.cpp -o server -lpq -lpqxx -lsqlite3 -lboo
 # =========================
 FROM ubuntu:22.04
 
-# Install runtime dependencies
+# Install only runtime dependencies
 RUN apt-get update && apt-get install -y \
     ca-certificates libpq5 libsqlite3-0 \
     && rm -rf /var/lib/apt/lists/*
@@ -33,12 +35,10 @@ RUN useradd -m appuser
 
 WORKDIR /app
 COPY --from=builder /app/server .
+COPY public /app/public
 
 # Persistent disk directory
 RUN mkdir -p /var/data && chown -R appuser:appuser /var/data
-
-# Add static files to runtime stage
-COPY public /app/public
 
 USER appuser
 
@@ -50,7 +50,7 @@ ENV PORT=8080
 ENV MAX_WORKERS=4
 ENV DATA_DIR=/var/data
 
-# Environment variables for Render PostgreSQL
+# PostgreSQL environment variables
 ENV DB_HOST=dpg-d5ajkvu3jp1c73cm3le0-a
 ENV DB_PORT=5432
 ENV DB_NAME=websitedb_1jmq
