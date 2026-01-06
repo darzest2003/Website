@@ -1,425 +1,197 @@
-<!doctype html>
-<html lang="en">  
-<head>  
-  <meta charset="utf-8" />  
-  <!-- ✅ Security & Privacy Meta Tags -->
-<meta http-equiv="X-Content-Type-Options" content="nosniff">
-<meta http-equiv="X-Frame-Options" content="DENY">
-<meta http-equiv="Referrer-Policy" content="no-referrer">
-<meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=(), payment=()">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ONLINETRADERZ — Admin Panel</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="stylesheet" href="admin.css">
+<style>
+body { font-family: Arial; margin:0; background:#f4f6f8; }
+.topbar { background:#111; color:#fff; padding:10px 20px; display:flex; justify-content:space-between; align-items:center; }
+.sidebar { position:fixed; top:50px; left:0; width:220px; bottom:0; background:#1e1e1e; color:#fff; padding:10px; overflow-y:auto; }
+.sidebar li { list-style:none; padding:12px; cursor:pointer; }
+.sidebar li:hover, .sidebar li.active { background:#333; }
+.main { margin-left:240px; padding:20px; }
+.card { background:#fff; padding:20px; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,.1); margin-bottom:15px; }
+.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:15px; }
+table { width:100%; border-collapse:collapse; background:#fff; margin-top:15px; }
+th,td { padding:10px; border-bottom:1px solid #ddd; text-align:left; }
+input,textarea,select,button { padding:10px; margin:5px 0; width:100%; box-sizing:border-box; }
+button { cursor:pointer; background:#111; color:#fff; border:none; border-radius:4px; }
+button:hover { background:#333; }
+.hidden { display:none; }
+.toast { position:fixed; bottom:20px; right:20px; background:#111; color:#fff; padding:12px 18px; border-radius:4px; opacity:0; transition:.3s; z-index:1000; }
+.toast.show { opacity:1; }
+</style>
+</head>
 
-<!-- ✅ Strong Content Security Policy -->
-<meta http-equiv="Content-Security-Policy"
-  content="
-    default-src 'self' https:;
-    script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com 'unsafe-inline';
-    style-src 'self' 'unsafe-inline' https:;
-    img-src 'self' https: data:;
-    connect-src 'self' https://cppbackened.onrender.com;
-    font-src 'self' https: data:;
-    object-src 'none';
-    frame-ancestors 'none';
-    base-uri 'self';
-    form-action 'self' https://wa.me;
-  ">
-  <meta name="viewport" content="width=device-width,initial-scale=1" />  
-  <title>ONLINETRADERZ — Shop</title>  
-  <meta name="description" content="ONLINETRADERZ — modern storefront" />    
-  <link rel="stylesheet" href="style.css">
-</head>  
+<body>
 
-<body class="theme-grey">  
+<div class="topbar">
+  <h2>Admin Dashboard</h2>
+  <button onclick="logout()">Logout</button>
+</div>
 
-  <!-- Sidebar Toggle Button (Top Left) -->
-<button class="menu-toggle" id="menuToggle">
-  ☰
-</button>
+<ul class="sidebar">
+  <li class="active" data-page="dashboard">Dashboard</li>
+  <li data-page="products">Products</li>
+  <li data-page="orders">Orders</li>
+</ul>
 
-<!-- Sidebar Menu -->
-<aside class="sidebar" id="sidebar">
-  <div class="sidebar-header">
-    <h3>Categories</h3>
-    <button class="close-sidebar" id="closeSidebar">✕</button>
+<div class="main">
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="page">
+  <div class="grid">
+    <div class="card">Total Orders<br><h2 id="statOrders">0</h2></div>
+    <div class="card">Revenue<br><h2>Rs.<span id="statRevenue">0</span></h2></div>
   </div>
-  <ul class="category-list">
-    <li data-category="car-accessories">Car Accessories</li>
-    <li data-category="lights">Lights</li>
-    <li data-category="car-cleaner">Car Cleaner</li>
-    <li data-category="shirts">Shirts</li>
-    <li data-category="winter-collections">Winter Collections</li>
-    <li data-category="jewelry-items">Jewelry Items</li>
-    <li data-category="body-mists">Body Mists</li>
-  </ul>
-</aside>
-  <header class="site-header">
-    <nav class="nav">
-      <div class="brand">
-        <div class="brand-logo">OZ</div>
-        ONLINETRADERZ
-      </div>
-      <div class="nav-links">
-        <a href="#">Home</a>
-        <a href="#">Shop</a>
-        <a href="#">About</a>
-        <a href="#">Contact</a>
-      </div>
-      <div class="nav-actions">
-        <button class="theme-toggle">🌙</button>
-        <button class="cart-btn">🛒 Cart <span class="cart-count">0</span></button>
-      </div>
-    </nav>
-  </header>
+</div>
 
-  <main class="page">
-    <section class="hero">
-      <h1>Welcome to ONLINETRADERZ</h1>
-      <p>Shop with elegance.</p>
-    </section>
-
-     
-
-    <section class="lock-banner">
-      <div class="lock-content">
-        <img src="https://cdn-icons-png.flaticon.com/512/3062/3062634.png" alt="Secure Shopping" class="lock-icon">
-        <h2>Cash on Delivery Available</h2>
-        <p>Shop securely with confidence — your orders are safe and delivered right to your doorstep.</p>
-        <div class="banner-images">
-          <img src="images/Banner1.jpg" alt="Cash on Delivery Banner">
-          <img src="images/Banner2.jpg" alt="Truck Delivery Banner">
-      <img src="images/Banner3.jpg" alt="Boy Receiving Parcel"> 
-        </div>
-      </div>
-    </section>
-
-    
-    
-  
-    <div class="tools">
-      <div class="search">
-        <input type="text" placeholder="Search products..." />
-      </div>
-      <div class="filter">Filter</div>
-    </div>
-
-  </main>
-
-  <footer class="footer">
-    &copy; 2025 ONLINETRADERZ. All Rights Reserved.
-    <br><br>
-    <a href="mailto:farisdaar107@gmail.com" class="footer-email" target="_blank">
-      <img src="https://cdn-icons-png.flaticon.com/512/561/561127.png" alt="Email Icon">
-      farisdaar107@gmail.com
-    </a>
-  </footer>
-
-  <!-- Floating WhatsApp Button -->
-  <a href="https://wa.me/923444318078" class="whatsapp-float" target="_blank" aria-label="Chat on WhatsApp">
-    <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" />
-    
-  </a>
-
-   <!-- 🛒 Cart Sidebar -->
-  <div class="cart-sidebar" id="cartSidebar">
-    <div class="cart-header">
-      <h3>Your Cart</h3>
-      <button id="closeCart">✖</button>
-    </div>
-    <div id="cartItems"></div>
-    <div class="cart-footer">
-      <p>Total: Rs.<span id="cartTotal">0</span></p>
-      <button class="checkout-btn">Checkout</button>
-    </div>
+<!-- PRODUCTS -->
+<div id="products" class="page hidden">
+  <div class="card">
+    <h3>Add Product</h3>
+    <input id="pTitle" placeholder="Product Title">
+    <input id="pPrice" type="number" placeholder="Price">
+    <input id="pStock" type="number" placeholder="Stock">
+    <input id="pImg" placeholder="Image URL">
+    <button onclick="addProduct()">Add Product</button>
   </div>
 
+  <div class="card">
+    <h3>Product List</h3>
+    <ul id="productList"></ul>
+  </div>
+</div>
+
+<!-- ORDERS -->
+<div id="orders" class="page hidden">
+  <div class="card">
+    <h3>Received Orders</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Order ID</th><th>Name</th><th>Contact</th><th>Email</th><th>Address</th><th>Payment</th><th>Total</th><th>Shipping</th><th>Items</th><th>Label</th>
+        </tr>
+      </thead>
+      <tbody id="ordersTable"></tbody>
+    </table>
+  </div>
+</div>
+
+</div>
+
+<div class="toast" id="toast"></div>
 
 <script>
-const API_BASE = "https://cppbackened.onrender.com";
-let cart = JSON.parse(localStorage.getItem("cart")) || [];
+const API = "https://cppbackened.onrender.com";
 
+/* ============== AUTH ============== */
+if(sessionStorage.getItem("adminLoggedIn")!=="true"){ location.href="admin_login.html"; }
+function logout(){ sessionStorage.clear(); location.href="admin_login.html"; }
+function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),2500); }
 
-  // ---------- Shipping Charges Logic ----------
-function calculateShipping(total) {
-    if(total < 1500) return 180;
-    else if(total >= 1500 && total <= 5000) return 150;
-    else return 0; // Free shipping
-}
-
-  
-// ----------------- Cart Functions -----------------
-function updateCartCount() { document.querySelector(".cart-count").textContent = cart.length; }
-function saveCart() { localStorage.setItem("cart", JSON.stringify(cart)); updateCartCount(); renderCartItems(); }
-function addToCart(p) { 
-    if(p.stock<=0){ alert("Out of stock!"); return; } 
-    const e = cart.find(i=>i.id===p.id); 
-    if(e){ e.quantity++ } else { p.quantity=1; cart.push(p); } 
-    saveCart(); 
-    alert(`${p.title} added!`); 
-}
-function changeQuantity(i,d){ cart[i].quantity+=d; if(cart[i].quantity<=0) cart.splice(i,1); saveCart(); }
-function removeFromCart(i){ cart.splice(i,1); saveCart(); }
-function renderCartItems(){ 
-    const container = document.getElementById("cartItems"); 
-    const totalEl = document.getElementById("cartTotal"); 
-    container.innerHTML = ""; 
-    let sum = 0; 
-
-    cart.forEach((item,i)=>{ 
-        const div = document.createElement("div"); 
-        div.className = "cart-item"; 
-        div.innerHTML = `
-            <img src="${item.img}" alt="${item.title}">
-            <div class="cart-item-details">
-                <h4>${item.title}</h4>
-                <p>Rs.${item.price}</p>
-                <div class="qty-control">
-                    <button onclick="changeQuantity(${i},-1)">➖</button>
-                    <span>${item.quantity}</span>
-                    <button onclick="changeQuantity(${i},1)">➕</button>
-                </div>
-            </div>
-            <button class="remove-btn" onclick="removeFromCart(${i})">🗑️</button>`; 
-        container.appendChild(div); 
-        sum += item.price * item.quantity; 
-    });
-
-    const shipping = calculateShipping(sum);
-    const finalTotal = sum + shipping;
-
-    totalEl.textContent = finalTotal;
-
-    // Display shipping info
-    let shippingEl = document.getElementById("cartShipping");
-    if(!shippingEl){
-        shippingEl = document.createElement("p");
-        shippingEl.id = "cartShipping";
-        totalEl.parentNode.insertBefore(shippingEl, totalEl.nextSibling);
-    }
-    shippingEl.textContent = shipping > 0 ? `Shipping: Rs.${shipping}` : "Free Shipping!";
-}
-// ----------------- Cart Sidebar -----------------
-document.querySelector(".cart-btn").addEventListener("click",()=>document.getElementById("cartSidebar").classList.add("active"));
-document.getElementById("closeCart").addEventListener("click",()=>document.getElementById("cartSidebar").classList.remove("active"));
-updateCartCount(); renderCartItems();
-
-// ----------------- Load Products (Hardcoded) -----------------
-async function loadProducts() {
-  try {
-    // Hardcoded products (2 unique, repeated for grid layout)
-    const res = await fetch(`${API_BASE}/api/products`);
-const products = await res.json();
-displayProducts(products);
-
-  } catch(err) {
-    console.error(err);
-  }
-}
-
-// ----------------- Display Products with Add to Cart -----------------
-function displayProducts(products){
-  const grid = document.createElement("div");
-  grid.className = "grid";
-  grid.style.display = "grid";
-  grid.style.gridTemplateColumns = "repeat(auto-fit, minmax(180px, 1fr))";
-  grid.style.gap = "20px";
-  grid.style.padding = "20px";
-
-  products.forEach(p => {
-    const card = document.createElement("div");
-    card.className = "card";
-    card.setAttribute("data-category", p.category || "all");
-
-    const badgeHTML = p.badge ? `<div class="badge ${p.badge.toLowerCase()}">${p.badge}</div>` : "";
-
-    card.innerHTML = `
-      ${badgeHTML}
-      <img src="${p.img}" alt="${p.title}">
-      <h3>${p.title}</h3>
-      <div class="meta">
-        <div class="price">Rs.${p.price}</div>
-        <div class="stock ${p.stock>0?'in':'out'}">${p.stock>0?'In Stock':'Out of Stock'}</div>
-      </div>
-      <button class="btn add-cart-btn">Add to Cart 🛒</button>
-    `;
-
-    grid.appendChild(card);
-
-    // Add click event for Add to Cart button
-    card.querySelector(".add-cart-btn").addEventListener("click", e => {
-      e.stopPropagation(); // Prevent opening overlay
-      addToCart(p);
-    });
-
-    // Click card opens product detail overlay
-    card.addEventListener("click", () => openProductDetail(p));
-  });
-
-  document.querySelector(".page").appendChild(grid);
-}
-
-// ----------------- Product Detail Overlay -----------------
-function openProductDetail(p){
-  // Remove existing overlay
-  const existing = document.querySelector(".product-detail-overlay");
-  if(existing) existing.remove();
-
-  // Create overlay
-  const overlay = document.createElement("div");
-  overlay.className = "product-detail-overlay";
-
-  overlay.innerHTML = `
-    <div class="product-detail">
-      <button class="close-btn" style="align-self:flex-end;font-size:18px;padding:5px 10px;">✖</button>
-      <div class="detail-content">
-        <div class="detail-img">
-          <img src="${p.img}" alt="${p.title}">
-        </div>
-        <div class="detail-info">
-          <h2>${p.title}</h2>
-          <p class="stock">${p.stock>0 ? '✅ In Stock' : '❌ Out of Stock'}</p>
-          <p class="desc">${p.desc || 'No description available.'}</p>
-          <div class="actions" style="margin-top:auto; justify-content:flex-end;">
-            <a href="https://wa.me/923444318078?text=I'm%20interested%20in%20${encodeURIComponent(p.title)}" target="_blank" class="btn whatsapp-btn" style="background:#25D366;">WhatsApp 📱</a>
-            <button class="btn add-cart-btn" style="background:#ff6a00;">Add to Cart 🛒</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
-
-  // Event listeners
-  overlay.querySelector(".close-btn").addEventListener("click", () => overlay.remove());
-  overlay.querySelector(".add-cart-btn").addEventListener("click", () => addToCart(p));
-}
-
-
-
-
-// ----------------- Sidebar & Category Filter -----------------
-document.getElementById('menuToggle').addEventListener('click',()=>document.getElementById('sidebar').classList.add('active'));
-document.getElementById('closeSidebar').addEventListener('click',()=>document.getElementById('sidebar').classList.remove('active'));
-document.querySelectorAll('.category-list li').forEach(item=>item.addEventListener('click',()=>{
-    const sel=item.getAttribute('data-category'); 
-    document.querySelectorAll('.card').forEach(c=>{
-        c.style.display=(sel===c.getAttribute('data-category')||sel==='all')?'flex':'none';
-    });
-    document.getElementById('sidebar').classList.remove('active');
-}));
-
-// ----------------- Search -----------------
-document.querySelector('.search input').addEventListener('input',e=>{
-    const q=e.target.value.toLowerCase(); 
-    document.querySelectorAll('.card').forEach(c=>{
-        c.style.display=c.querySelector('h3').textContent.toLowerCase().includes(q)?'flex':'none';
-    });
+/* ============== NAV ============== */
+document.querySelectorAll(".sidebar li").forEach(li=>{
+  li.onclick=()=>{
+    document.querySelectorAll(".sidebar li").forEach(i=>i.classList.remove("active"));
+    document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));
+    li.classList.add("active");
+    document.getElementById(li.dataset.page).classList.remove("hidden");
+  };
 });
 
-// ----------------- Theme Toggle -----------------
-document.querySelector('.theme-toggle').addEventListener('click',()=>{ document.body.classList.toggle('theme-dark'); document.body.classList.toggle('theme-grey'); });
+/* ============== LOAD DATA ============== */
+async function loadDashboard(){
+  try{
+    const orders = await (await fetch(`${API}/api/orders`)).json();
+    let revenue=0;
+    orders.forEach(o=>revenue+=Number(o.totalAmount||0));
+    document.getElementById("statOrders").textContent=orders.length;
+    document.getElementById("statRevenue").textContent=revenue.toFixed(2);
+  }catch(e){ console.error(e); }
+}
 
-// ----------------- Checkout & Payment -----------------
-document.querySelector(".cart-footer .checkout-btn").addEventListener("click", ()=>{
-    if(cart.length===0){ alert("Cart is empty!"); return; }
-
-    const modal = document.createElement("div"); 
-    modal.className = "checkout-modal-overlay";
-    modal.innerHTML = `<div class="checkout-modal" id="checkoutModal">
-      <div class="checkout-form">
-        <h2>🛒 Complete Your Order</h2>
-        <form id="orderForm">
-          <label>Full Name</label><input type="text" id="custName" required placeholder="John Doe">
-          <label>Phone Number</label><input type="tel" id="custContact" required placeholder="03XXXXXXXXX">
-          <label>Email (optional)</label><input type="email" id="custEmail" placeholder="example@email.com">
-          <label>Delivery Address</label><textarea id="custAddress" required placeholder="House no, street, city"></textarea>
-          <label>Payment Method</label>
-          <select id="custPayment" required>
-            <option value="">Select payment method</option>
-            <option value="cod">Cash on Delivery</option>
-            <option value="easypaisa">Easypaisa</option>
-            <option value="jazzcash">JazzCash</option>
-          </select>
-          <button type="button" id="submitOrder">Place Order</button>
-          <button type="button" id="closeCheckout">Cancel</button>
-        </form>
-      </div>
-    </div>`;
-    document.body.appendChild(modal);
-
-    modal.querySelector("#closeCheckout").addEventListener("click", ()=>modal.remove());
-
-    modal.querySelector("#submitOrder").addEventListener("click", ()=> {
-        const name = modal.querySelector("#custName").value.trim();
-        const contact = modal.querySelector("#custContact").value.trim();
-        const address = modal.querySelector("#custAddress").value.trim();
-        const payment = modal.querySelector("#custPayment").value;
-        if(!name || !contact || !address || !payment){ alert("Please fill all required fields"); return; }
-
-        const orderId = "OZ"+Math.floor(100000 + Math.random()*900000);
-        let total = document.getElementById("cartTotal").textContent;
-        total = parseFloat(total.replace(/[^0-9.]/g,''));  // Ensure numeric
-        const shipping = calculateShipping(total);
-
-        const orderData = {
-            id: orderId,
-            name,
-            contact,
-            address,
-            payment,
-            totalAmount: total,
-            shipping,
-            items: cart.map(item => ({
-                id: item.id,
-                title: item.title,
-                price: Number(item.price),
-                quantity: Number(item.quantity)
-            }))
-        };
-
-        fetch(`${API_BASE}/api/orders`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(orderData)
-        })
-        .then(async res => {
-            if(!res.ok) throw new Error("Server returned " + res.status);
-            const data = await res.json();
-            console.log("✅ Order saved:", data);
-
-            cart = [];
-            localStorage.removeItem("cart");
-            updateCartCount();
-            renderCartItems();
-
-            alert("🎉 Order placed successfully!");
-            modal.remove();
-
-            // Optional payment redirects
-            if(payment==="easypaisa"){
-                window.open(`https://www.easypaisa.com.pk/pay/03187900076?amount=${total}&reference=${orderId}`, "_blank");
-            } else if(payment==="jazzcash"){
-                window.open(`https://www.jazzcash.com.pk/pay/03187900076?amount=${total}&reference=${orderId}`, "_blank");
-            }
-
-            window.location.href = "index.html"; // reload shop
-        })
-        .catch(err => {
-            console.error("❌ Failed to save order:", err);
-            alert("❌ Order could not be saved. Please try again.");
-        });
+async function loadProducts(){
+  try{
+    const products = await (await fetch(`${API}/api/products`)).json();
+    const ul = document.getElementById("productList");
+    ul.innerHTML="";
+    products.forEach(p=>{
+      ul.innerHTML+=`<li>${p.title} — Rs.${p.price} | Stock: ${p.stock} <button onclick="deleteProduct('${p.id}')">Delete</button></li>`;
     });
-});
-    
+  }catch(e){ console.error(e); }
+}
 
-    
+async function loadOrders(){
+  try{
+    const orders = await (await fetch(`${API}/api/orders`)).json();
+    const tbody = document.getElementById("ordersTable");
+    tbody.innerHTML="";
+    orders.reverse().forEach(o=>{
+      tbody.innerHTML+=`<tr>
+        <td>${o.id}</td>
+        <td>${o.name}</td>
+        <td>${o.contact}</td>
+        <td>${o.email||'-'}</td>
+        <td>${o.address}</td>
+        <td>${o.payment}</td>
+        <td>Rs.${o.totalAmount}</td>
+        <td>Rs.${o.shipping||0}</td>
+        <td>${o.items.map(i=>`${i.title}×${i.quantity}`).join(", ")}</td>
+        <td><button onclick="downloadLabel('${o.id}')">Download</button></td>
+      </tr>`;
+    });
+  }catch(e){ console.error(e); }
+}
 
-    
+/* ============== PRODUCT ACTIONS ============== */
+async function addProduct(){
+  const title=document.getElementById("pTitle").value.trim();
+  const price=Number(document.getElementById("pPrice").value);
+  const stock=Number(document.getElementById("pStock").value);
+  const img=document.getElementById("pImg").value.trim();
+  if(!title||!price||!stock||!img){ toast("Please fill all fields"); return; }
 
-// ----------------- Initialize -----------------
+  try{
+    const existing = await (await fetch(`${API}/api/products`)).json();
+    const newProduct = { id:"p_"+Math.random().toString(36).slice(2,9), title, price, stock, img };
+    const res = await fetch(`${API}/api/products`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify([...existing,newProduct]) });
+    if(!res.ok) throw 1;
+    toast("✅ Product added");
+    document.getElementById("pTitle").value="";
+    document.getElementById("pPrice").value="";
+    document.getElementById("pStock").value="";
+    document.getElementById("pImg").value="";
+    loadProducts();
+  }catch(e){ console.error(e); toast("Server error"); }
+}
+
+async function deleteProduct(id){
+  try{
+    const products = await (await fetch(`${API}/api/products`)).json();
+    const updated = products.filter(p=>p.id!==id);
+    const res = await fetch(`${API}/api/products`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(updated) });
+    if(!res.ok) throw 1;
+    toast("Product deleted");
+    loadProducts();
+  }catch(e){ console.error(e); toast("Server error"); }
+}
+
+/* ============== ORDERS ACTIONS ============== */
+function downloadLabel(id){
+  const a=document.createElement("a");
+  a.href=`${API}/api/shippingLabel?id=${id}`;
+  a.download=`Shipping_${id}.txt`;
+  a.click();
+}
+
+/* ============== INIT ============== */
+loadDashboard();
 loadProducts();
-window.addEventListener('beforeunload',saveCart);
-  
+loadOrders();
 </script>
 
-</body>   
+</body>
 </html>
