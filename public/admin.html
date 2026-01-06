@@ -121,55 +121,35 @@ async function loadProducts(){
       </li>`;
   });
 }
-async function addProduct() {
-  const title = document.getElementById("pTitle").value.trim();
-  const price = Number(document.getElementById("pPrice").value || 0);
-  const stock = Number(document.getElementById("pStock").value || 0);
-  const img = document.getElementById("pImg").value.trim();
 
-  if (!title || !price || !stock || !img) {
-    alert("❌ Please fill all fields");
+async function addProduct() {
+  const name = document.getElementById("pTitle").value.trim();
+  const price = Number(document.getElementById("pPrice").value);
+
+  if (!name || price <= 0) {
+    alert("❌ Invalid product data");
     return;
   }
 
-  const newProduct = {
-    id: "p_" + Math.random().toString(36).slice(2,9),
-    title,
-    price,
-    stock,
-    img
-  };
-
   try {
-    // Get current products
-    const existing = await (await fetch(`${API}/api/products`)).json();
-
-    // Add new product
-    const products = [...existing, newProduct];
-
-    // Send full array back
-    const res = await fetch(`${API}/api/products`, {
+    const res = await fetch(`${API}/api/addProduct`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(products)
+      body: JSON.stringify({ name, price })
     });
 
-    if (!res.ok) throw new Error("Failed to add product");
+    const data = await res.json();
+    if (!data.success) throw new Error();
 
-    alert("✅ Product added successfully");
+    alert("✅ Product added");
+    loadProducts();
 
-    // Reset form
-    document.getElementById("pTitle").value = "";
-    document.getElementById("pPrice").value = "";
-    document.getElementById("pStock").value = "";
-    document.getElementById("pImg").value = "";
-
-    loadProducts(); // reload product list
-  } catch (err) {
-    console.error(err);
-    alert("❌ Server error while adding product");
+  } catch (e) {
+    alert("❌ Server not responding");
+    console.error(e);
   }
 }
+
   
 loadOrders();  
 loadProducts();  
