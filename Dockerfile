@@ -3,16 +3,19 @@
 # =========================
 FROM ubuntu:22.04 AS builder
 
-# Install build tools + PostgreSQL dev + SQLite dev
+# Install build tools + PostgreSQL dev + SQLite dev + Boost + libpqxx
 RUN apt-get update && apt-get install -y \
-    g++ cmake make git libpq-dev libsqlite3-dev \
+    g++ cmake make git \
+    libpq-dev libpqxx-dev libsqlite3-dev \
+    libboost-system-dev libboost-thread-dev libboost-filesystem-dev \
+    nlohmann-json3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY server.cpp .
 
-# Compile your server with PostgreSQL and SQLite libraries
-RUN g++ -std=c++17 -O3 -pthread server.cpp -o server -lpq -lsqlite3 \
+# Compile your server with PostgreSQL, SQLite, and Boost libraries
+RUN g++ -std=c++17 -O3 -pthread server.cpp -o server -lpq -lpqxx -lsqlite3 -lboost_system -lboost_thread \
     && strip server
 
 # =========================
@@ -48,9 +51,6 @@ ENV MAX_WORKERS=4
 ENV DATA_DIR=/var/data
 
 # Environment variables for Render PostgreSQL
-ENV PORT=8080
-ENV MAX_WORKERS=4
-ENV DATA_DIR=/var/data
 ENV DB_HOST=dpg-d5ajkvu3jp1c73cm3le0-a
 ENV DB_PORT=5432
 ENV DB_NAME=websitedb_1jmq
