@@ -319,45 +319,51 @@ document.querySelector('.search input').addEventListener('input',e=>{
 document.querySelector('.theme-toggle').addEventListener('click',()=>{ document.body.classList.toggle('theme-dark'); document.body.classList.toggle('theme-grey'); });
 
 // ----------------- Checkout & Payment -----------------
-document.querySelector(".cart-footer .checkout-btn").addEventListener("click", ()=>{
-    if(cart.length===0){ alert("Cart is empty!"); return; }
+document.querySelector(".cart-footer .checkout-btn").addEventListener("click", () => {
+    if(cart.length === 0){ alert("Cart is empty!"); return; }
 
+    // Create modal
     const modal = document.createElement("div"); 
     modal.className = "checkout-modal-overlay";
-    modal.innerHTML = `<div class="checkout-modal" id="checkoutModal">
-      <div class="checkout-form">
-        <h2>🛒 Complete Your Order</h2>
-        <form id="orderForm">
-          <label>Full Name</label><input type="text" id="custName" required placeholder="John Doe">
-          <label>Phone Number</label><input type="tel" id="custContact" required placeholder="03XXXXXXXXX">
-          <label>Email (optional)</label><input type="email" id="custEmail" placeholder="example@email.com">
-          <label>Delivery Address</label><textarea id="custAddress" required placeholder="House no, street, city"></textarea>
-          <label>Payment Method</label>
-          <select id="custPayment" required>
-            <option value="">Select payment method</option>
-            <option value="cod">Cash on Delivery</option>
-            <option value="easypaisa">Easypaisa</option>
-            <option value="jazzcash">JazzCash</option>
-          </select>
-          <button type="button" id="submitOrder">Place Order</button>
-          <button type="button" id="closeCheckout">Cancel</button>
-        </form>
+    modal.innerHTML = `
+      <div class="checkout-modal" id="checkoutModal">
+        <div class="checkout-form">
+          <h2>🛒 Complete Your Order</h2>
+          <form id="orderForm">
+            <label>Full Name</label><input type="text" id="custName" required placeholder="John Doe">
+            <label>Phone Number</label><input type="tel" id="custContact" required placeholder="03XXXXXXXXX">
+            <label>Email (optional)</label><input type="email" id="custEmail" placeholder="example@email.com">
+            <label>Delivery Address</label><textarea id="custAddress" required placeholder="House no, street, city"></textarea>
+            <label>Payment Method</label>
+            <select id="custPayment" required>
+              <option value="">Select payment method</option>
+              <option value="cod">Cash on Delivery</option>
+              <option value="easypaisa">Easypaisa</option>
+              <option value="jazzcash">JazzCash</option>
+            </select>
+            <button type="submit">Place Order</button>
+            <button type="button" id="closeCheckout">Cancel</button>
+          </form>
+        </div>
       </div>
-    </div>`;
+    `;
     document.body.appendChild(modal);
 
-    modal.querySelector("#closeCheckout").addEventListener("click", ()=>modal.remove());
+    // Close button
+    modal.querySelector("#closeCheckout").addEventListener("click", () => modal.remove());
 
-    modal.querySelector("#submitOrder").addEventListener("click", ()=> {
+    // Submit form
+    modal.querySelector("#orderForm").addEventListener("submit", e => {
+        e.preventDefault(); // Prevent reload
+
         const name = modal.querySelector("#custName").value.trim();
         const contact = modal.querySelector("#custContact").value.trim();
         const address = modal.querySelector("#custAddress").value.trim();
         const payment = modal.querySelector("#custPayment").value;
         if(!name || !contact || !address || !payment){ alert("Please fill all required fields"); return; }
 
-        const orderId = "OZ"+Math.floor(100000 + Math.random()*900000);
-        let total = document.getElementById("cartTotal").textContent;
-        total = parseFloat(total.replace(/[^0-9.]/g,''));  // Ensure numeric
+        const orderId = "OZ" + Math.floor(100000 + Math.random()*900000);
+        let total = parseFloat(document.getElementById("cartTotal").textContent.replace(/[^0-9.]/g,''));
         const shipping = calculateShipping(total);
 
         const orderData = {
@@ -409,8 +415,6 @@ document.querySelector(".cart-footer .checkout-btn").addEventListener("click", (
         });
     });
 });
-    
-
     
 
     
