@@ -1225,51 +1225,56 @@ int main() {
          " (workers=" + to_string(g_max_workers) +
          ", data_dir=" + g_data_dir + ")");  
 
-    // ================= ACCEPT LOOP =================
-    while (g_running.load()) {  
-        struct sockaddr_in clientAddr{};  
-        socklen_t clientLen = sizeof(clientAddr);  
-        int clientSock = accept(server_fd, (struct sockaddr *)&clientAddr, &clientLen);  
+    // ================= ACCEPT LOOP (robust version) =================
+while (g_running.load()) {
+    struct sockaddr_in clientAddr{};
+    socklen_t clientLen = sizeof(clientAddr);
 
-        if (clientSock < 0) {  
-            if (!g_running.load()) break;  
-            perror("accept");  
-            continue;  
-        }  
+    int clientSock = accept(server_fd, (struct sockaddr *)&clientAddr, &clientLen);
 
-        int flag = 1;  
-        setsockopt(clientSock, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(int));  
-
-        char client_ip[INET_ADDRSTRLEN] = {0};  
-        inet_ntop(AF_INET, &clientAddr.sin_addr, client_ip, sizeof(client_ip));  
-        string cli = string(client_ip) + ":" + to_string(ntohs(clientAddr.sin_port));  
-        LOGI(string("Accepted connection from ") + cli);  
-
-        try {
-            pool.enqueue([clientSock]() {
-                handleClient(clientSock);
-            });
-        } catch (const std::exception &ex) {
-            LOGE(string("Failed to enqueue client handler: ") + ex.what());
-            close(clientSock);
-        }
-    } // ✅ THIS BRACE WAS MISSING
-
-    // ================ SHUTDOWN =================
-    LOGI("Server shutting down...");
-
-    if (g_server_fd >= 0) {
-        close(g_server_fd);
-        g_server_fd = -1;
+    if (clientSock < 0) {
+        if (!g_running.load()) break; // shutdown requested
+        if (errno == EINTR) continue; // interrupted by signal, retry
+        perror("accept");
+        this_thread::sleep_for(chrono::milliseconds(50)); // avoid busy loop on repeated errors
+        continue;
     }
 
-    g_threadpool_ptr = nullptr;
+    // Disable Nagle for low-latency writes
+    int flag = 1;
+    setsockopt(clientSock, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(int));
 
-    if (g_db) {
-        sqlite3_close(g_db);
-        g_db = nullptr;
+    char client_ip[INET_ADDRSTRLEN] = {0};
+    inet_ntop(AF_INET, &clientAddr.sin_addr, client_ip, sizeof(client_ip));
+    string cli = string(client_ip) + ":" + to_string(ntohs(clientAddr.sin_port));
+    LOGI("Accepted connection from " + cli);
+
+    try {
+        pool.enqueue([clientSock]() {
+            handleClient(clientSock);
+        });
+    } catch (const std::exception &ex) {
+        LOGE("Failed to enqueue client handler: " + string(ex.what()));
+        close(clientSock);
     }
-
-    LOGI("Server exited cleanly.");
-    return 0;
 }
+
+// ================= SHUTDOWN =================
+LOGI("Server shutting down...");
+
+// Close listening socket if not already closed
+if (g_server_fd >= 0) {
+    close(g_server_fd);
+    g_server_fd = -1;
+}
+
+// ThreadPool destructor will join all workers
+g_threadpool_ptr = nullptr;
+
+// Close SQLite DB
+if (g_db) {
+    sqlite3_close(g_db);
+    g_db = nullptr;
+}
+
+LOGI("Server exited cleanly");
