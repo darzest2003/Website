@@ -849,14 +849,14 @@ if (path.find("/api/products") == 0 && method == "GET") {
 // ------------------- POST /api/addProduct -------------------
 if (path.find("/api/addProduct") == 0 && method == "POST") {
     json j = json::parse(body, nullptr, false);
-    if (j.is_discarded() || !j.contains("name") || !j.contains("price")) {
+    if (j.is_discarded() || !j.contains("title") || !j.contains("price")) {
         sendResponse(clientSocket, "400 Bad Request", "application/json",
                      "{\"success\":false,\"error\":\"Invalid input\"}");
         close(clientSocket);
         return;
     }
 
-    string name = j["name"].get<string>();
+    string title = j["title"].get<string>();
     double price = j["price"].get<double>();
 
     Product p;
@@ -864,7 +864,7 @@ if (path.find("/api/addProduct") == 0 && method == "POST") {
         lock_guard<mutex> lock(g_storage_mutex);
         currentProductID = products.empty() ? 0 : stoi(products.back().id.substr(1));
         p.id = "p" + to_string(++currentProductID);
-        p.title = name;
+        p.title = title;
         p.price = price;
         p.img = "";
         p.stock = 0;
