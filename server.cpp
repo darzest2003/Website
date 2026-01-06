@@ -3,7 +3,6 @@
 // SQLite port of original file-backed server (ready-to-compile).
 // Compile with: g++ server.cpp -o server -pthread -lsqlite3
 #include <nlohmann/json.hpp>
-using nlohmann::json;
 #include <iostream>
 #include <functional>
 #include <netinet/tcp.h>
@@ -36,7 +35,7 @@ using nlohmann::json;
 #include <sqlite3.h>
 
 using namespace std;
-
+using nlohmann::json;
 // =================== Configuration & Globals for Enhancements ===================
 static atomic<bool> g_running(true);
 static int g_server_fd = -1;
