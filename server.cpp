@@ -846,13 +846,8 @@ if (path.find("/api/products") == 0 && method == "GET") {
     return;  
 }  
 
-// POST /api/addProduct  
-
-using json = nlohmann::json;
+// ------------------- POST /api/addProduct -------------------
 if (path.find("/api/addProduct") == 0 && method == "POST") {
-    LOGD("Add product request body: " + body);
-
-    // Parse JSON safely using nlohmann::json
     json j = json::parse(body, nullptr, false);
     if (j.is_discarded() || !j.contains("name") || !j.contains("price")) {
         sendResponse(clientSocket, "400 Bad Request", "application/json",
@@ -867,22 +862,18 @@ if (path.find("/api/addProduct") == 0 && method == "POST") {
     Product p;
     {
         lock_guard<mutex> lock(g_storage_mutex);
-
-        // Increment ID safely based on last product
         currentProductID = products.empty() ? 0 : stoi(products.back().id.substr(1));
         p.id = "p" + to_string(++currentProductID);
-        p.title = name;  // <-- use 'title', not 'name', consistent with Product struct
+        p.title = name;
         p.price = price;
         p.img = "";
         p.stock = 0;
-
         products.push_back(p);
-        saveProducts(); // returns void in your current code
+        saveProducts();
     }
 
     string resp = "{\"success\":true,\"id\":\"" + p.id + "\"}";
     sendResponse(clientSocket, "200 OK", "application/json", resp);
-    LOGD("Product added successfully: " + name);
     close(clientSocket);
     return;
 }
