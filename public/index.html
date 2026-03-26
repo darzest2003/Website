@@ -216,6 +216,8 @@ displayProducts(products);
 
 // ----------------- Display Products with Add to Cart -----------------
 function displayProducts(products){
+  const oldGrid = document.querySelector(".grid");
+if(oldGrid) oldGrid.remove();
   const grid = document.createElement("div");
   grid.className = "grid";
   grid.style.display = "grid";
@@ -363,8 +365,10 @@ document.querySelector(".cart-footer .checkout-btn").addEventListener("click", (
         if(!name || !contact || !address || !payment){ alert("Please fill all required fields"); return; }
 
         const orderId = "OZ" + Math.floor(100000 + Math.random()*900000);
-        let total = parseFloat(document.getElementById("cartTotal").textContent.replace(/[^0-9.]/g,''));
-        const shipping = calculateShipping(total);
+        let finalTotal = parseFloat(document.getElementById("cartTotal").textContent.replace(/[^0-9.]/g,''));
+
+let subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+let shipping = calculateShipping(subtotal);
 
         const orderData = {
             id: orderId,
@@ -372,7 +376,7 @@ document.querySelector(".cart-footer .checkout-btn").addEventListener("click", (
             contact,
             address,
             payment,
-            totalAmount: total,
+            totalAmount: finalTotal,
             shipping,
             items: cart.map(item => ({
                 id: item.id,
