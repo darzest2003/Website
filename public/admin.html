@@ -167,7 +167,16 @@ async function addProduct(){
 
   try{
     const existing = await (await fetch(`${API}/api/products`)).json();
-    const newProduct = { id:"p_"+Math.random().toString(36).slice(2,9), title, price, stock, img };
+    const newProduct = {
+  id: "p_" + Math.random().toString(36).slice(2,9),
+  title,
+  price,
+  stock,
+  img,
+  category: "all",
+  badge: "",
+  desc: ""
+};
     const res = await fetch(`${API}/api/products`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify([...existing,newProduct]) });
     if(!res.ok) throw 1;
     toast("✅ Product added");
