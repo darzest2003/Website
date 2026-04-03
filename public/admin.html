@@ -138,24 +138,34 @@ async function loadProducts(){
 
 async function loadOrders(){
   try{
-    const orders = await (await fetch(`${API}/api/orders`)).json();
+    const res = await fetch(`${API}/api/orders`);
+    const data = await res.json();
+    const orders = Array.isArray(data) ? data : [data];
+
     const tbody = document.querySelector("#ordersTable tbody");
-    tbody.innerHTML += `
-<tr>
-  <td>${o.id || '-'}</td>
-  <td>${o.name || '-'}</td>
-  <td>${o.contact || '-'}</td>
-  <td>${o.email || '-'}</td>
-  <td>${o.address || '-'}</td>
-  <td>${(o.items || []).map(i => (i.title || 'Item') + '×' + (i.quantity || 1)).join(", ")}</td>
-  <td>Rs.${o.totalAmount || 0}</td>
-  <td>${o.payment || 'COD'}</td>
-  <td>Rs.${o.shipping || 0}</td>
-  <td><button onclick="downloadLabel('${o.id}')">Download</button></td>
-</tr>
-`;
+    tbody.innerHTML = "";
+
+    orders.reverse().forEach(o=>{
+      tbody.innerHTML += `
+      <tr>
+        <td>${o.id || '-'}</td>
+        <td>${o.name || '-'}</td>
+        <td>${o.contact || '-'}</td>
+        <td>${o.email || '-'}</td>
+        <td>${o.address || '-'}</td>
+        <td>${(o.items || []).map(i => (i.title || 'Item') + '×' + (i.quantity || 1)).join(", ")}</td>
+        <td>Rs.${o.totalAmount || 0}</td>
+        <td>${o.payment || 'COD'}</td>
+        <td>Rs.${o.shipping || 0}</td>
+        <td><button onclick="downloadLabel('${o.id}')">Download</button></td>
+      </tr>
+      `;
     });
-  }catch(e){ console.error(e); }
+
+  }catch(e){ 
+    console.error(e); 
+    toast("Failed to load orders");
+  }
 }
 
 /* ============== PRODUCT ACTIONS ============== */
