@@ -118,7 +118,7 @@ document.querySelectorAll(".sidebar li").forEach(li=>{
 async function loadDashboard(){
   try{
     const data = await (await fetch(`${API}/api/orders`)).json();
-const orders = Array.isArray(data) ? data : [data];
+const orders = Array.isArray(data) ? data : (data ? [data] : []);
     let revenue=0;
     orders.forEach(o=>revenue+=Number(o.totalAmount||0));
     document.getElementById("statOrders").textContent=orders.length;
