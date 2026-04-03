@@ -98,6 +98,30 @@ button:hover { background:#333; }
 
 <script>
 const API = "https://cppbackened.onrender.com";
+  async function loadProducts(){
+  try{
+    const products = await (await fetch(`${API}/api/products`)).json().catch(()=>[]);
+    const ul = document.getElementById("productList");
+    ul.innerHTML="";
+
+    if(!Array.isArray(products) || products.length===0){
+      ul.innerHTML = "<li>No products found</li>";
+      return;
+    }
+
+    products.forEach(p=>{
+      ul.innerHTML+=`
+        <li>
+          ${p.title} — Rs.${p.price} | Stock: ${p.stock}
+          <button onclick="deleteProduct('${p.id}')">Delete</button>
+        </li>`;
+    });
+
+  }catch(e){ 
+    console.error(e); 
+    toast("Failed to load products"); 
+  }
+  }
 
 /* ============== AUTH ============== */
 if(sessionStorage.getItem("adminLoggedIn")!=="true"){ location.href="admin_login.html"; }
