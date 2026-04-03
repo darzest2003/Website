@@ -117,8 +117,10 @@ document.querySelectorAll(".sidebar li").forEach(li=>{
 /* ============== LOAD DATA ============== */
 async function loadDashboard(){
   try{
-    const data = await (await fetch(`${API}/api/orders`)).json();
-const orders = Array.isArray(data) ? data : (data ? [data] : []);
+    const data = await (await fetch(`${API}/api/orders`)).json().catch(()=>[]);
+const orders = Array.isArray(data)
+  ? data
+  : (data && Object.keys(data).length ? [data] : []);
     let revenue=0;
     orders.forEach(o=>revenue+=Number(o.totalAmount||0));
     document.getElementById("statOrders").textContent=orders.length;
@@ -126,41 +128,44 @@ const orders = Array.isArray(data) ? data : (data ? [data] : []);
   }catch(e){ console.error(e); }
 }
 
-async function loadProducts(){
-  try{
-    const products = await (await fetch(`${API}/api/products`)).json();
-    const ul = document.getElementById("productList");
-    ul.innerHTML="";
-    products.forEach(p=>{
-      ul.innerHTML+=`<li>${p.title} — Rs.${p.price} | Stock: ${p.stock} <button onclick="deleteProduct('${p.id}')">Delete</button></li>`;
-    });
-  }catch(e){ console.error(e); }
-}
-
-async function loadOrders(){
+  async function loadOrders(){
   try{
     const res = await fetch(`${API}/api/orders`);
-    const data = await res.json();
 
-    // ✅ Handle both array & single object (NO server change needed)
-    const orders = Array.isArray(data) ? data : [data];
+    // 🔥 SAFE JSON PARSE (handles empty file)
+    let data;
+    try {
+      data = await res.json();
+    } catch {
+      data = [];
+    }
+
+    // 🔥 HANDLE ALL CASES
+    const orders = Array.isArray(data)
+      ? data
+      : (data && Object.keys(data).length ? [data] : []);
 
     const tbody = document.querySelector("#ordersTable tbody");
     tbody.innerHTML = "";
 
+    if(orders.length === 0){
+      tbody.innerHTML = `<tr><td colspan="10">No orders found</td></tr>`;
+      return;
+    }
+
     orders.reverse().forEach(o=>{
       tbody.innerHTML += `
       <tr>
-        <td>${o.id || '-'}</td>
-        <td>${o.name || '-'}</td>
-        <td>${o.contact || '-'}</td>
-        <td>${o.email || '-'}</td>
-        <td>${o.address || '-'}</td>
-        <td>${(o.items || []).map(i => (i.title || 'Item') + '×' + (i.quantity || 1)).join(", ")}</td>
-        <td>Rs.${o.totalAmount || 0}</td>
-        <td>${o.payment || 'COD'}</td>
-        <td>Rs.${o.shipping || 0}</td>
-        <td><button onclick="downloadLabel('${o.id}')">Download</button></td>
+        <td>${o?.id || '-'}</td>
+        <td>${o?.name || '-'}</td>
+        <td>${o?.contact || '-'}</td>
+        <td>${o?.email || '-'}</td>
+        <td>${o?.address || '-'}</td>
+        <td>${(o?.items || []).map(i => (i.title || 'Item') + '×' + (i.quantity || 1)).join(", ")}</td>
+        <td>Rs.${o?.totalAmount || 0}</td>
+        <td>${o?.payment || 'COD'}</td>
+        <td>Rs.${o?.shipping || 0}</td>
+        <td><button onclick="downloadLabel('${o?.id}')">Download</button></td>
       </tr>
       `;
     });
@@ -169,7 +174,7 @@ async function loadOrders(){
     console.error(e); 
     toast("Failed to load orders");
   }
-}
+  }
 
 /* ============== PRODUCT ACTIONS ============== */
 async function addProduct(){
